@@ -1,6 +1,11 @@
 #!/bin/bash
+echo "`date +"%F %T"` ${0} ${@}" >> prev_calls_${0##*/}.log
 
 # default arguments
+mail_user="altenkort@physik.uni-bielefeld.de"
+mail_type=FAIL
+output_base_path=/work/temp/altenkort/conf/quenched
+partition=compute_gpu_volta
 nconfs=1000
 output_partition=temp
 nodex=1
@@ -13,11 +18,12 @@ nsweeps_thermal_HB_only=500
 nsweeps_thermal_HBwithOR=4000
 nsweeps_ORperHB=4
 nsweeps_HBwithOR=500
+executable=/work/temp/altenkort/conf/quenched/bin/GenerateQuenched
 
 #start parse command line arguments
 POSITIONAL=(); while [[ $# -gt 0 ]]; do key="$1"; case $key in 
         --mode) mode="$2"; shift; shift; ;; #continue or resume
-        --conftype) conftype="$2"; shift; shift; ;; #format: sNNNtNN_bNNNNNNN
+        --conftype) conftype="$2"; shift; shift; ;; #format e.g. s064t16_b0687361 for ns=64, nt=16, beta=6.87361
         --str_id) str_id="$2"; shift; shift; ;;
         --nconfs) nconfs="$2"; shift; shift; ;;
         --output_partition) output_partition="$2"; shift; shift; ;; #temp or conf
@@ -32,6 +38,11 @@ POSITIONAL=(); while [[ $# -gt 0 ]]; do key="$1"; case $key in
         --nsweeps_thermal_HBwithOR) nsweeps_thermal_HBwithOR="$2"; shift; shift; ;; 
         --nsweeps_ORperHB) nsweeps_ORperHB="$2"; shift; shift; ;; 
         --nsweeps_HBwithOR) nsweeps_HBwithOR="$2"; shift; shift; ;; 
+        --output_base_path) output_base_path="$2"; shift; shift; ;; #folder that contains stream folders
+        --executable) executable="$2"; shift; shift; ;;
+        --mail_user) mail_user="$2"; shift; shift; ;;
+        --mail_type) mail_type="$2"; shift; shift; ;;
+        --partition) partition="$2"; shift; shift; ;;
 *) echo "$key: Unknown argument!"; exit 1; ;; esac ; done; set -- "${POSITIONAL[@]}" 
 #end parse arguments
 
@@ -45,32 +56,12 @@ numberofgpus=$(($nodex * $nodey * $nodez * $nodet))
 if [ $numberofgpus -ge 5 ]; then echo "Script only supports n_gpus=4!"; exit 1; fi
 nodes="$nodex $nodey $nodez $nodet"
 
-if [[ "$output_partition" == temp ]]; then
-    output_base_path=/work/temp/altenkort/conf
-elif [[ "$output_partition" == conf ]]; then
-    output_base_path=/work/conf/altenkort/
-fi
-
-echo "conftype str_id nconfs output_partition conf_nr nodes = numberofgpus"
-echo "$conftype $str_id $nconfs $output_partition $conf_nr $nodes = $numberofgpus"
-echo -n "Continue y/n? "
-read input
-if [ "$input" != "y" ]; then
-    echo "Did not start job..."
-    exit 
-fi
-read -p "Really continue? Press enter..."
-
 #create some paths and directories
 jobname=gen_${conftype}_$str_id
-logdir=$output_base_path/quenched/${conftype}/logs
-paramdir=$output_base_path/quenched/${conftype}/param
+logdir=$output_base_path/${conftype}/logs
+paramdir=$output_base_path/${conftype}/param
 paramfile=$paramdir/${conftype}_${str_id}.param
-outputdir=$output_base_path/quenched/${conftype}/${conftype}_${str_id}
-mkdir -p $outputdir
-mkdir -p $logdir
-mkdir -p $paramdir
-
+outputdir=$output_base_path/${conftype}/${conftype}_${str_id}
 
 #Start: generate GenerateQuenched parameter file
 ns=${conftype#s}; ns=${ns%%t*}
@@ -78,6 +69,7 @@ nt=${conftype#*t}; nt=${nt%%_b*}
 Lattice="$ns $ns $ns $nt"
 beta=${conftype#*_b}; beta=`bc <<< "scale=5;$beta/100000"`
 
+#start fresh, resume, or auto resume (finds last conf nr automatically)?
 if [ "$mode" == "start" ]; then
 start_or_continue="start = $start
 nsweeps_thermal_HB_only = $nsweeps_thermal_HB_only
@@ -87,10 +79,33 @@ if [ -z ${conf_nr+x} ]; then echo "Please specify --conf_nr!"; exit 1; fi
 start_or_continue="conf_nr = $conf_nr
 prev_conf = $outputdir/conf_${conftype}_${str_id}_U$conf_nr
 prev_rand = $outputdir/rand_${conftype}_${str_id}_U$conf_nr"
+elif [ "$mode" == "resume_auto" ]; then
+working_dir=`pwd` && cd $outputdir
+last_conf=`ls -r | grep rand | head -n1`
+conf_nr=${last_conf##*_U}
+nconfs=`bc <<< $nconfs-$conf_nr/$nsweeps_HBwithOR`
+echo "INFO: Changed conf_nr to $conf_nr and nconfs to $nconfs"
+start_or_continue="conf_nr = $conf_nr
+prev_conf = $outputdir/conf_${conftype}_${str_id}_U$conf_nr
+prev_rand = $outputdir/rand_${conftype}_${str_id}_U$conf_nr"
+cd $working_dir
 else
 echo "Please choose --mode start or resume!"
 exit 1
 fi
+
+echo "conftype str_id nconfs output_partition conf_nr nodes => numberofgpus"
+echo "$conftype $str_id $nconfs $output_partition $conf_nr $nodes => $numberofgpus"
+echo -n "Continue y/n? "
+read input
+if [ "$input" != "y" ]; then
+    echo "Did not start job..."
+    exit 
+fi
+
+mkdir -p $outputdir
+mkdir -p $logdir
+mkdir -p $paramdir
 
 parameters="Lattice = $Lattice
 Nodes = $nodes
@@ -107,24 +122,27 @@ $start_or_continue
 echo "$parameters" > $paramfile
 #End: parameter file
 
+
 sbatch << EOF
 #!/bin/bash
 #SBATCH --job-name=${jobname}
 #SBATCH --output=$logdir/${jobname}_%j.out
 #SBATCH --error=$logdir/${jobname}_%j.err
-#SBATCH --mail-type=FAIL
-#SBATCH --mail-user=altenkort@physik.uni-bielefeld.de
-#SBATCH --partition=compute_gpu_volta
+#SBATCH --mail-type=$mail_type
+#SBATCH --mail-user=$mail_user
+#SBATCH --partition=$partition
 #SBATCH --nodes=1
 #SBATCH --sockets-per-node=1
 #SBATCH --cores-per-socket=$numberofgpus
-#SBATCH --gpus-per-socket=$numberofgpus
+# #SBATCH --gpus-per-socket=$numberofgpus
 #SBATCH --gpus-per-node=$numberofgpus
 #SBATCH --gpus=$numberofgpus
 #SBATCH --ntasks=$numberofgpus
 #SBATCH --time=$time
 
 echo -e "Start \`date +"%F %T"\` | \$SLURM_JOB_ID \$SLURM_JOB_NAME | \`hostname\` | \`pwd\` \\n"
-srun -n $numberofgpus /work/temp/altenkort/conf/quenched/bin/GenerateQuenched $paramfile
-echo -e "Start \`date +"%F %T"\` | \$SLURM_JOB_ID \$SLURM_JOB_NAME | \`hostname\` | \`pwd\` \\n"
+run_command="srun -n $numberofgpus $executable $paramfile"
+echo -e "\$run_command \\n"
+eval "\$run_command"
+echo -e "\\nEnd \`date +"%F %T"\` | \$SLURM_JOB_ID \$SLURM_JOB_NAME | \`hostname\` | \`pwd\`"
 EOF
