@@ -7,7 +7,6 @@ mail_type=FAIL
 output_base_path=/work/temp/altenkort/conf/quenched
 partition=compute_gpu_volta
 nconfs=1000
-output_partition=temp
 nodex=1
 nodey=1
 nodez=1
@@ -26,7 +25,6 @@ POSITIONAL=(); while [[ $# -gt 0 ]]; do key="$1"; case $key in
         --conftype) conftype="$2"; shift; shift; ;; #format e.g. s064t16_b0687361 for ns=64, nt=16, beta=6.87361
         --str_id) str_id="$2"; shift; shift; ;;
         --nconfs) nconfs="$2"; shift; shift; ;;
-        --output_partition) output_partition="$2"; shift; shift; ;; #temp or conf
         --conf_nr) conf_nr="$2"; shift; shift; ;;
         --nodex) nodex="$2"; shift; shift; ;;
         --nodey) nodey="$2"; shift; shift; ;;
@@ -43,13 +41,13 @@ POSITIONAL=(); while [[ $# -gt 0 ]]; do key="$1"; case $key in
         --mail_user) mail_user="$2"; shift; shift; ;;
         --mail_type) mail_type="$2"; shift; shift; ;;
         --partition) partition="$2"; shift; shift; ;;
-*) echo "$key: Unknown argument!"; exit 1; ;; esac ; done; set -- "${POSITIONAL[@]}" 
+*) echo "ERROR: $key: Unknown argument!"; exit 1; ;; esac ; done; set -- "${POSITIONAL[@]}" 
 #end parse arguments
 
 if     [ -z ${conftype+x} ] \
     || [ -z ${str_id+x} ] \
     || [ -z ${mode+x} ] ;
-then echo "Please specify required arguments!"; exit 1; fi
+then echo "ERROR: Please specify the required arguments!"; exit 1; fi
 
 
 numberofgpus=$(($nodex * $nodey * $nodez * $nodet))
@@ -69,37 +67,48 @@ nt=${conftype#*t}; nt=${nt%%_b*}
 Lattice="$ns $ns $ns $nt"
 beta=${conftype#*_b}; beta=`bc <<< "scale=5;$beta/100000"`
 
+echo "PARAM: ns $ns nt $nt beta $beta"
+echo "PARAM: nsweeps_ORperHB $nsweeps_ORperHB nsweeps_HBwithOR $nsweeps_HBwithOR"
+
 #start fresh, resume, or auto resume (finds last conf nr automatically)?
 if [ "$mode" == "start" ]; then
+echo "PARAM: start $start nsweeps_thermal_HB_only $nsweeps_thermal_HB_only nsweeps_thermal_HBwithOR $nsweeps_thermal_HBwithOR"  
 start_or_continue="start = $start
 nsweeps_thermal_HB_only = $nsweeps_thermal_HB_only
 nsweeps_thermal_HBwithOR = $nsweeps_thermal_HBwithOR"
-elif [ "$mode" == "resume" ]; then
-if [ -z ${conf_nr+x} ]; then echo "Please specify --conf_nr!"; exit 1; fi
-start_or_continue="conf_nr = $conf_nr
-prev_conf = $outputdir/conf_${conftype}_${str_id}_U$conf_nr
-prev_rand = $outputdir/rand_${conftype}_${str_id}_U$conf_nr"
-elif [ "$mode" == "resume_auto" ]; then
-working_dir=`pwd` && cd $outputdir
-last_conf=`ls -r | grep rand | head -n1`
-conf_nr=${last_conf##*_U}
-nconfs=`bc <<< $nconfs-$conf_nr/$nsweeps_HBwithOR`
-echo "INFO: Changed conf_nr to $conf_nr and nconfs to $nconfs"
-start_or_continue="conf_nr = $conf_nr
-prev_conf = $outputdir/conf_${conftype}_${str_id}_U$conf_nr
-prev_rand = $outputdir/rand_${conftype}_${str_id}_U$conf_nr"
-cd $working_dir
+elif [ "$mode" == "resume" ] || [ "$mode" == "resume_auto" ]; then
+    if [ "$mode" == "resume" ]; then
+        if [ -z ${conf_nr+x} ]; then echo "ERROR: Please specify --conf_nr!"; exit 1; fi
+    elif [ "$mode" == "resume_auto" ]; then
+        working_dir=`pwd` && cd $outputdir
+        last_conf=`ls -r | grep rand | head -n1`
+        conf_nr=${last_conf##*_U}
+        nconfs=`bc <<< $nconfs-$conf_nr/$nsweeps_HBwithOR`
+        echo "INFO: Changed conf_nr to $conf_nr and nconfs to $nconfs"
+        cd $working_dir
+    fi
+    prev_conf=$outputdir/conf_${conftype}_${str_id}_U$conf_nr
+    prev_rand=$outputdir/rand_${conftype}_${str_id}_U$conf_nr
+    start_or_continue="conf_nr = $conf_nr
+prev_conf = $prev_conf
+prev_rand = $prev_rand"
+    echo "PARAM: conf_nr $conf_nr nconfs $nconfs"
+    echo "PARAM: prev_conf $prev_conf"
+    echo "PARAM: prev_rand $prev_rand"
 else
-echo "Please choose --mode start or resume!"
+echo "ERROR: Please choose --mode start or resume or resume_auto!"
 exit 1
 fi
 
-echo "conftype str_id nconfs output_partition conf_nr nodes => numberofgpus"
-echo "$conftype $str_id $nconfs $output_partition $conf_nr $nodes => $numberofgpus"
-echo -n "Continue y/n? "
+echo "PARAM: executable $executable"
+echo "PARAM: output_dir $outputdir"
+echo "PARAM: nodes $nodes numberofgpus $numberofgpus partition $partition time $time"
+echo "PARAM: mail_user $mail_user mail_type $mail_type"
+
+echo -en "\nContinue y/n? "
 read input
 if [ "$input" != "y" ]; then
-    echo "Did not start job..."
+    echo "INFO: Did not start job..."
     exit 
 fi
 
