@@ -1,5 +1,6 @@
 #!/bin/bash
-echo "`date +"%F %T"` ${0} ${@}" >> prev_calls_${0##*/}.log
+echo "`date +"%F %T"`" >> prev_calls_${0##*/}.log
+echo "${0} ${@}" >> prev_calls_${0##*/}.log
 
 # default arguments
 mail_user="altenkort@physik.uni-bielefeld.de"
@@ -48,7 +49,9 @@ if     [ -z ${conftype+x} ] \
     || [ -z ${str_id+x} ] \
     || [ -z ${mode+x} ] ;
 then echo "ERROR: Please specify the required arguments!"; exit 1; fi
-
+if [ ! -f $executable ]; then
+    echo "ERROR: Executable does not exist!"
+fi
 
 numberofgpus=$(($nodex * $nodey * $nodez * $nodet))
 if [ $numberofgpus -ge 5 ]; then echo "Script only supports n_gpus=4!"; exit 1; fi
@@ -112,6 +115,8 @@ if [ "$input" != "y" ]; then
     exit 
 fi
 
+#-------------------------------------------------------
+
 mkdir -p $outputdir
 mkdir -p $logdir
 mkdir -p $paramdir
@@ -130,7 +135,6 @@ $start_or_continue
 "
 echo "$parameters" > $paramfile
 #End: parameter file
-
 
 sbatch << EOF
 #!/bin/bash
@@ -155,3 +159,4 @@ echo -e "\$run_command \\n"
 eval "\$run_command"
 echo -e "\\nEnd \`date +"%F %T"\` | \$SLURM_JOB_ID \$SLURM_JOB_NAME | \`hostname\` | \`pwd\`"
 EOF
+echo "^sbatch script submitted" >> prev_calls_${0##*/}.log
