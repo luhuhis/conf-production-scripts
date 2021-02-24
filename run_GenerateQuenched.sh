@@ -6,7 +6,8 @@ echo "${0} ${@}" >> prev_calls_${0##*/}.log
 mail_user="altenkort@physik.uni-bielefeld.de"
 mail_type=FAIL
 output_base_path=/work/temp/altenkort/conf/quenched
-partition=compute_gpu_volta
+partition=volta
+qos=compute_gpu_long
 nconfs=1000
 nodex=1
 nodey=1
@@ -18,7 +19,8 @@ nsweeps_thermal_HB_only=500
 nsweeps_thermal_HBwithOR=4000
 nsweeps_ORperHB=4
 nsweeps_HBwithOR=500
-executable=/work/temp/altenkort/conf/quenched/bin/GenerateQuenched
+executable_dir=/home/altenkort/code_build/ParallelGPU/stable_executables/
+executable=GenerateQuenched_26012021
 
 #start parse command line arguments
 POSITIONAL=(); while [[ $# -gt 0 ]]; do key="$1"; case $key in 
@@ -38,6 +40,7 @@ POSITIONAL=(); while [[ $# -gt 0 ]]; do key="$1"; case $key in
         --nsweeps_ORperHB) nsweeps_ORperHB="$2"; shift; shift; ;; 
         --nsweeps_HBwithOR) nsweeps_HBwithOR="$2"; shift; shift; ;; 
         --output_base_path) output_base_path="$2"; shift; shift; ;; #folder that contains stream folders
+        --executable_dir) executable_dir="$2"; shift; shift; ;;
         --executable) executable="$2"; shift; shift; ;;
         --mail_user) mail_user="$2"; shift; shift; ;;
         --mail_type) mail_type="$2"; shift; shift; ;;
@@ -49,9 +52,8 @@ if     [ -z ${conftype+x} ] \
     || [ -z ${str_id+x} ] \
     || [ -z ${mode+x} ] ;
 then echo "ERROR: Please specify the required arguments!"; exit 1; fi
-if [ ! -f $executable ]; then
-    echo "ERROR: Executable does not exist!"
-fi
+executable_path=$executable_dir/$executable
+if [ ! -f $executable_path ]; then echo "ERROR: Executable does not exist!"; exit 1; fi
 
 numberofgpus=$(($nodex * $nodey * $nodez * $nodet))
 if [ $numberofgpus -ge 5 ]; then echo "Script only supports n_gpus=4!"; exit 1; fi
@@ -103,7 +105,7 @@ echo "ERROR: Please choose --mode start or resume or resume_auto!"
 exit 1
 fi
 
-echo "PARAM: executable $executable"
+echo "PARAM: executable $executable_path"
 echo "PARAM: output_dir $outputdir"
 echo "PARAM: nodes $nodes numberofgpus $numberofgpus partition $partition time $time"
 echo "PARAM: mail_user $mail_user mail_type $mail_type"
@@ -144,17 +146,14 @@ sbatch << EOF
 #SBATCH --mail-type=$mail_type
 #SBATCH --mail-user=$mail_user
 #SBATCH --partition=$partition
+#SBATCH --qos=$qos
 #SBATCH --nodes=1
-#SBATCH --sockets-per-node=1
-#SBATCH --cores-per-socket=$numberofgpus
-# #SBATCH --gpus-per-socket=$numberofgpus
-#SBATCH --gpus-per-node=$numberofgpus
 #SBATCH --gpus=$numberofgpus
 #SBATCH --ntasks=$numberofgpus
 #SBATCH --time=$time
 
 echo -e "Start \`date +"%F %T"\` | \$SLURM_JOB_ID \$SLURM_JOB_NAME | \`hostname\` | \`pwd\` \\n"
-run_command="srun -n $numberofgpus $executable $paramfile"
+run_command="srun -n $numberofgpus $executable_path $paramfile"
 echo -e "\$run_command \\n"
 eval "\$run_command"
 echo -e "\\nEnd \`date +"%F %T"\` | \$SLURM_JOB_ID \$SLURM_JOB_NAME | \`hostname\` | \`pwd\`"
