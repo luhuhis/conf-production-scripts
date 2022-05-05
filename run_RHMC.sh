@@ -87,7 +87,6 @@ parser.add_argument('--rand_flag', default=1, type=int, choices=[0,1], help="new
 parser.add_argument('--rand_file', type=str)
 parser.add_argument('--seed', type=int, required=True)
 parser.add_argument('--load_conf', type=int, choices=[0,1,2], default=2, help="0=einhei, 1=random, 2=getconf")
-parser.add_argument('--rat_file', type=str, required=True)
 parser.add_argument('--write_every', type=int, default=1)
 parser.add_argument('--conf_nr', type=int, help="conf number of start configuration")
 parser.add_argument('--no_updates', type=int, default=1000, help="number of updates")
