@@ -65,8 +65,7 @@ parser.add_argument('--stream_id', type=str, required=True, help="used to deduce
 
 # GAUGE CONF PARAMETERS
 parser.add_argument('--Lattice', nargs='4', required=True, help="Lattice dimensions")
-parser.add_argument('--Nodes', nargs=4, type=int, default=[1,1,1,1], help="how many times to split the Lattice in each direction (x y z t).
-                                                                           this determines the number of GPUs for each job step.")
+parser.add_argument('--Nodes', nargs=4, type=int, default=[1,1,1,1], help="how many times to split the Lattice in each direction (x y z t). this determines the number of GPUs for each job step.")
 parser.add_argument('--beta', type=float, required=True)
 parser.add_argument('--mass_s', type=float, required=True)
 parser.add_argument('--mass_ud', type=float, required=True)
