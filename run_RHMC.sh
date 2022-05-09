@@ -180,9 +180,8 @@ $SBATCH_CONSTRAINT
 $SBATCH_ARRAY
 $SBATCH_CUSTOM
 #SBATCH --nodes=$nodes
-#SBATCH --gpus-per-node=${gpuspernode}
-#SBATCH --ntasks=$numberofgpus
 #SBATCH --time=$time
+#SBATCH --gpus-per-node=${gpuspernode}
 
 module load ${module_load[@]}
 module list |& cat
@@ -201,11 +200,11 @@ if [ ! -f "${gauge_file}\${conf_nr}" ] ; then
 fi
 # determine rand_file and check if it exists
 if [ "${rand_file}" == "auto" ] ; then
-    rand_file="${output_base_path}/${conftype}/${conftype}${stream_id}/${conftype}${stream_id}_rand.\${conf_nr}"
+    rand_file="${output_base_path}/${conftype}/${conftype}${stream_id}/${conftype}${stream_id}_rand."
 fi
-echo "INFO: rand_file = \${rand_file}"
-if [ ! -f "\${rand_file}" ] && [ "${rand_flag}" -eq 1 ] ; then
-    echo "ERROR: given rand_file does not exist or auto failed! (you specified --rand_flag=1)"
+echo "INFO: rand_file = \${rand_file}\$conf_nr"
+if [ ! -f "\${rand_file}\${conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
+    echo "ERROR: given rand_file does not exist or autodetect failed! (you specified --rand_flag=1)"
     exit 1
 fi
 
@@ -243,7 +242,8 @@ echo "\$parameters" > "\$paramfile"
 echo -e "\$SLURM_JOB_ID \$SLURM_JOB_NAME | \$(hostname) | \$(pwd) \\n"
 echo -e "Start \$(date +"%F %T")\\n"
 
-run_command="mpirun -n ${numberofgpus} ${executable_path} \$paramfile"
+run_command="srun -n ${numberofgpus} -u ${executable_path} \$paramfile"
+
 echo -e "\$run_command \\n"
 eval "\$run_command"
 
@@ -253,7 +253,7 @@ EOF
 
 echo -ne "\n===== BEGIN SBATCHSCRIPT ===\n"
 echo "$sbatchscript"
-echo -ne "===== END   SBATCHSCRIPT ===\n"
+echo -ne "===== END   SBATCHSCRIPT ===\n\n"
 
 echo -en "\nSubmit y/n? "
 read -r input
