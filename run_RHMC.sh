@@ -181,7 +181,7 @@ $SBATCH_ARRAY
 $SBATCH_CUSTOM
 #SBATCH --nodes=$nodes
 #SBATCH --time=$time
-#SBATCH --gpus-per-node=${gpuspernode}
+#SBATCH --gres=gpu:${gpuspernode}
 
 module load ${module_load[@]}
 module list |& cat
