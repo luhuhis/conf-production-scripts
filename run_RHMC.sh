@@ -97,6 +97,7 @@ parser.add_argument('--write_every', type=int, default=1)
 
 
 # SLURM PARAMETERS
+parser.add_argument('--no_srun', action='store_true', help="launch the executable without srun. useful for badly configured systems.")
 parser.add_argument('--jobname', required=True, help="slurm job name")
 parser.add_argument('--mail_user', required=True)
 parser.add_argument('--mail_type', default="FAIL")
@@ -157,7 +158,6 @@ if [ "$sbatch_custom" ] ; then
     SBATCH_CUSTOM="#SBATCH --$sbatch_custom"
 fi
 
-
 logdir=${output_base_path}/logs
 mkdir -p "$logdir"
 
@@ -181,8 +181,23 @@ $SBATCH_CUSTOM
 module load ${module_load[@]}
 module list |& cat
 
+# "export" arrays to sub shell
+conftype=(${conftype[@]})
+stream_id=(${stream_id[@]})
+conf_nr=(${conf_nr[@]})
+Lattice=(${Lattice[@]@Q})
+Nodes=(${Nodes[@]@Q})
+rand_file=(${rand_file[@]})
+beta=(${beta[@]})
+mass_ud=(${mass_ud[@]})
+mass_s=(${mass_s[@]})
+seed=(${seed[@]})
+rat_file=(${rat_file[@]})
+custom_cmds=(${custom_cmds[@]@Q})
 
 for ((i = 0 ; i < $n_sim_steps ; i++)); do
+
+    echo "conftype = \${conftype[i]}"
 
     #create some paths and directories
     gaugedir="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}"
@@ -191,13 +206,13 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     mkdir -p "\$gaugedir"
     mkdir -p "\$paramdir"
 
-    gauge_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}."
-    # TODO rand file??
+    gauge_file="\${gaugedir}/\${conftype[i]}\${stream_id[i]}."
 
     # determine conf_nr and check if gauge_file exists
     if [ "\${conf_nr[i]}" == "auto" ] ; then
-        last_conf=\$(find \${gaugedir}/\${conftype[i]}\${stream_id[i]}.* -printf "%f\n" | sort -r | head -n1)
-        conf_nr=\${last_conf##*.}
+        last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -r | head -n1)
+	echo "last conf: \${last_conf}"
+	conf_nr=\${last_conf##*.}
         echo "INFO: setting conf_nr = \$conf_nr"
     fi
     echo "INFO: gauge_file = \${gauge_file}\${conf_nr}"
@@ -248,16 +263,23 @@ write_every = ${write_every}
 
     eval \${custom_cmds[i]}
 
-    this_Nodes=(\$Nodes[i])
+    this_Nodes=(\${Nodes[i]})
     numberofgpus=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
-    logdir=${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/logs
+    logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
-    run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
 
+    if [ $no_srun ] ; then
+        run_command="stdbuf -i0 -o0 -e0 ${executable_path} \$paramfile"
+    else
+        run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
+    fi
+
+    echo "\$ROCR_VISIBLE_DEVICES"
     echo -e "\$run_command \\n"
-    ( \$run_command &> \$logdir/${jobname}_%j.out ) &
+    ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${conf_nr}.out ) &
 
 done
+wait
 
 echo -e "End \$(date +"%F %T")\\n"
 EOF
@@ -274,6 +296,6 @@ if [ "$input" != "y" ]; then
     exit
 fi
 
-sbatch <<< "$sbatchscript"
+(sbatch <<< "$sbatchscript")
 
 echo "sbatch script submitted" >> prev_calls_"${0##*/}".log
