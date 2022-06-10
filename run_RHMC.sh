@@ -4,6 +4,7 @@ Lattice=""; Nodes=""; beta=""; mass_s="", mass_ud=""; step_size=""; no_md=""; no
 cgMax=""; always_acc=""; rat_file=""; rand_flag=""; rand_file=""; seed=""; load_conf=""; gauge_file=""; conf_nr=""; no_updates=""; write_every=""
 executable_dir=""; executable=""; output_base_path=""; conftype=""; stream_id="";
 jobname=""; mail_type=""; mail_user=""; partition=""; qos=""; nodes=""; time=""; account=""; module_load=""; gpuspernode="";
+n_sim_steps=""
 
 argparse(){
     #Copyright (c) 2017 Noah Hoffman
@@ -60,15 +61,22 @@ parser.add_argument('--module_load', nargs='*', help="modules will be loaded at 
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
 parser.add_argument('--executable', help="filename of the gradientFlow exectuable inside the folder", default="RHMC")
-parser.add_argument('--conftype', type=str, required=True, help="used to deduce the input/output file names, e.g. l9636f21b8249m002022m01011")
-parser.add_argument('--stream_id', type=str, required=True, help="used to deduce output file names")
+
+parser.add_argument('--n_sim_steps', type=int, default=1, help='how many slurm steps can be executed at the same time. useful for multiple single gpu runs on a full node.')
+parser.add_argument('--conftype', nargs='*', type=str, required=True, help="used to deduce the input/output file names, e.g. l9636f21b8249m002022m01011")
+parser.add_argument('--stream_id', nargs='*', type=str, required=True, help="used to deduce output file names")
 
 # GAUGE CONF PARAMETERS
-parser.add_argument('--Lattice', nargs=4, required=True, help="Lattice dimensions")
-parser.add_argument('--Nodes', nargs=4, type=int, required=True, help="how many times to split the Lattice in each direction (x y z t). this determines the number of GPUs for each job step.")
-parser.add_argument('--beta', type=float, required=True)
-parser.add_argument('--mass_s', type=float, required=True)
-parser.add_argument('--mass_ud', type=float, required=True)
+parser.add_argument('--Lattice', nargs='*', type=str, required=True, help="Lattice dimensions")
+parser.add_argument('--Nodes', nargs='*', type=str,  required=True, help="how many times to split the Lattice in each direction (x y z t). this determines the number of GPUs for each job step.")
+parser.add_argument('--beta', nargs='*', type=float, required=True)
+parser.add_argument('--mass_s', nargs='*', type=float, required=True)
+parser.add_argument('--mass_ud', nargs='*', type=float, required=True)
+parser.add_argument('--rat_file', nargs='*', type=str, required=True)
+parser.add_argument('--rand_file', nargs='*', type=str, default="auto")
+parser.add_argument('--seed', nargs='*', type=int, required=True)
+parser.add_argument('--conf_nr', nargs='*', default="auto", help="conf number of start configuration")
+parser.add_argument('--no_updates', nargs='*', type=int, default=1000, help="number of updates")
 
 parser.add_argument('--step_size', type=float, default=0.05, help="step size of trajectory")
 parser.add_argument('--no_md', type=int, default=20, help="number of steps of trajectory")
@@ -81,15 +89,12 @@ parser.add_argument('--residue_meas', type=float, default=1e-12)
 
 parser.add_argument('--cgMax', type=int, default=30000, help="max cg steps for multi mass solver")
 parser.add_argument('--always_acc', type=int, choices=[0,1], default=0, help="1 = always accept configuration in Metropolis")
-parser.add_argument('--rat_file', type=str, required=True)
 
 parser.add_argument('--rand_flag', default=1, type=int, choices=[0,1], help="new random numbers(0)/read in random numbers(1)")
-parser.add_argument('--rand_file', type=str, default="auto")
-parser.add_argument('--seed', type=int, required=True)
+
 parser.add_argument('--load_conf', type=int, choices=[0,1,2], default=2, help="0=einhei, 1=random, 2=getconf")
 parser.add_argument('--write_every', type=int, default=1)
-parser.add_argument('--conf_nr', default="auto", help="conf number of start configuration")
-parser.add_argument('--no_updates', type=int, default=1000, help="number of updates")
+
 
 # SLURM PARAMETERS
 parser.add_argument('--jobname', required=True, help="slurm job name")
@@ -106,7 +111,7 @@ parser.add_argument('--sbatch_custom', help='this is appended to "#SBATCH --" in
 parser.add_argument('--nodes', required=True, help='number of nodes')
 parser.add_argument('--gpuspernode', required=True)
 
-parser.add_argument('--custom_cmds', help="this is executed at the beginning of the sbatch script")
+parser.add_argument('--custom_cmds', nargs='*', type=str, help="commands to execute before job steps. the nth argument is executed before the nth job step. useful to set different CUDA_VISIBLE_DEVICES.")
 parser.add_argument('--array', help="use something lik 0-99:1 to let only one instance run simultaneously")
 
 EOF
@@ -131,9 +136,8 @@ if [ "$load_conf" -eq 2 ] && [ ! "$conf_nr" ] ; then
     exit 1
 fi
 
-# TODO find out how many gpus are necessary for each lattice, and how many steps can be done in the time frame
 
-# parser slurme options
+# parser slurm options
 if [ "$qos" ] ; then
     SBATCH_QOS="#SBATCH --qos=$qos"
 fi
@@ -153,18 +157,9 @@ if [ "$sbatch_custom" ] ; then
     SBATCH_CUSTOM="#SBATCH --$sbatch_custom"
 fi
 
-numberofgpus=$((Nodes[0] * Nodes[1] * Nodes[2] * Nodes[3]))
 
-#create some paths and directories
-gaugedir="$output_base_path/${conftype}/${conftype}${stream_id}"
-logdir=$output_base_path/${conftype}/logs
-paramdir=$output_base_path/${conftype}/param
-
-gauge_file="$output_base_path/${conftype}/${conftype}${stream_id}/${conftype}${stream_id}."
-
-mkdir -p "$gaugedir"
+logdir=${output_base_path}/logs
 mkdir -p "$logdir"
-mkdir -p "$paramdir"
 
 sbatchscript=$(cat <<EOF
 #!/bin/bash
@@ -186,36 +181,50 @@ $SBATCH_CUSTOM
 module load ${module_load[@]}
 module list |& cat
 
-$custom_cmds
 
-# determine conf_nr and check if gauge_file exists
-if [ "${conf_nr}" == "auto" ] ; then
-    last_conf=\$(find ${gaugedir}/${conftype}${stream_id}.* -printf "%f\n" | sort -r | head -n1)
-    conf_nr=\${last_conf##*.}
-    echo "INFO: setting conf_nr = \$conf_nr"
-fi
-echo "INFO: gauge_file = ${gauge_file}\${conf_nr}"
-if [ ! -f "${gauge_file}\${conf_nr}" ] ; then
-    echo "WARN: gauge_file does not exist"
-fi
-# determine rand_file and check if it exists
-if [ "${rand_file}" == "auto" ] ; then
-    rand_file="${output_base_path}/${conftype}/${conftype}${stream_id}/${conftype}${stream_id}_rand."
-fi
-echo "INFO: rand_file = \${rand_file}\$conf_nr"
-if [ ! -f "\${rand_file}\${conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
-    echo "ERROR: given rand_file does not exist or autodetect failed! (you specified --rand_flag=1)"
-    exit 1
-fi
+for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
-paramfile=${paramdir}/${conftype}_${stream_id}.\${conf_nr}.param
+    #create some paths and directories
+    gaugedir="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}"
+    paramdir=${output_base_path}/\${conftype[i]}/param
 
-parameters="
-Lattice = ${Lattice[*]}
-Nodes = ${Nodes[*]}
-beta    =  ${beta}
-mass_s  =  ${mass_s}
-mass_ud = ${mass_ud}
+    mkdir -p "\$gaugedir"
+    mkdir -p "\$paramdir"
+
+    gauge_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}."
+    # TODO rand file??
+
+    # determine conf_nr and check if gauge_file exists
+    if [ "\${conf_nr[i]}" == "auto" ] ; then
+        last_conf=\$(find \${gaugedir}/\${conftype[i]}\${stream_id[i]}.* -printf "%f\n" | sort -r | head -n1)
+        conf_nr=\${last_conf##*.}
+        echo "INFO: setting conf_nr = \$conf_nr"
+    fi
+    echo "INFO: gauge_file = \${gauge_file}\${conf_nr}"
+    if [ ! -f "\${gauge_file}\${conf_nr}" ] ; then
+        echo "WARN: gauge_file does not exist"
+    fi
+    # determine rand_file and check if it exists
+    if [ "\${rand_file[i]}" == "auto" ] ; then
+        this_rand_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}_rand."
+    fi
+    echo "INFO: rand_file = \${this_rand_file}\$conf_nr"
+    if [ ! -f "\${this_rand_file}\${conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
+        echo "ERROR: given rand_file does not exist or autodetect failed! (you specified --rand_flag=1)"
+        exit 1
+    fi
+
+    paramfile=\${paramdir}/\${conftype[i]}_\${stream_id[i]}.\${conf_nr}.param
+
+    parameters="
+Lattice = \${Lattice[i]}
+Nodes = \${Nodes[i]}
+beta    =  \${beta[i]}
+mass_s  =  \${mass_s[i]}
+mass_ud = \${mass_ud[i]}
+rat_file = \${rat_file[i]}
+seed = \${seed[i]}
+rand_file = \${this_rand_file}
 step_size  = ${step_size}
 no_md      = ${no_md}
 no_step_sf = ${no_step_sf}
@@ -225,27 +234,30 @@ residue_force = ${residue_force}
 residue_meas = ${residue_meas}
 cgMax  = ${cgMax}
 always_acc = ${always_acc}
-rat_file = ${rat_file}
 rand_flag = ${rand_flag}
-rand_file = \${rand_file}
-seed = ${seed}
 load_conf = ${load_conf}
-gauge_file = ${gauge_file}
+gauge_file = \${gauge_file}
 conf_nr = \${conf_nr}
 no_updates = ${no_updates}
 write_every = ${write_every}
 "
-echo "\$parameters" > "\$paramfile"
-#End parameter file
+    echo "\$parameters" > "\$paramfile"
 
+    echo -e "\$SLURM_JOB_ID \$SLURM_JOB_NAME | \$(hostname) | \$(pwd) \\n"
+    echo -e "Start \$(date +"%F %T")\\n"
 
-echo -e "\$SLURM_JOB_ID \$SLURM_JOB_NAME | \$(hostname) | \$(pwd) \\n"
-echo -e "Start \$(date +"%F %T")\\n"
+    eval \${custom_cmds[i]}
 
-run_command="srun -n ${numberofgpus} -u ${executable_path} \$paramfile"
+    this_Nodes=(\$Nodes[i])
+    numberofgpus=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
+    logdir=${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/logs
+    mkdir -p \$logdir
+    run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
 
-echo -e "\$run_command \\n"
-eval "\$run_command"
+    echo -e "\$run_command \\n"
+    ( \$run_command &> \$logdir/${jobname}_%j.out ) &
+
+done
 
 echo -e "End \$(date +"%F %T")\\n"
 EOF
