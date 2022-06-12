@@ -77,6 +77,9 @@ parser.add_argument('--rand_file', nargs='*', type=str, default="auto")
 parser.add_argument('--seed', nargs='*', type=int, required=True)
 parser.add_argument('--conf_nr', nargs='*', default="auto", help="conf number of start configuration")
 parser.add_argument('--no_updates', nargs='*', type=int, default=1000, help="number of updates")
+parser.add_argument('--load_conf', nargs='*', type=int, required=True, help="0=einhei, 1=random, 2=getconf")
+parser.add_argument('--rand_flag', default='*', type=int, required=True, help="0=new random numbers, 1=read in random numbers")
+parser.add_argument('--write_every', type=int, nargs='*', default=1, required=True, help="write out configuration after this number of updates.")
 
 parser.add_argument('--step_size', type=float, default=0.05, help="step size of trajectory")
 parser.add_argument('--no_md', type=int, default=20, help="number of steps of trajectory")
@@ -89,11 +92,6 @@ parser.add_argument('--residue_meas', type=float, default=1e-12)
 
 parser.add_argument('--cgMax', type=int, default=30000, help="max cg steps for multi mass solver")
 parser.add_argument('--always_acc', type=int, choices=[0,1], default=0, help="1 = always accept configuration in Metropolis")
-
-parser.add_argument('--rand_flag', default=1, type=int, choices=[0,1], help="new random numbers(0)/read in random numbers(1)")
-
-parser.add_argument('--load_conf', type=int, choices=[0,1,2], default=2, help="0=einhei, 1=random, 2=getconf")
-parser.add_argument('--write_every', type=int, default=1)
 
 
 # SLURM PARAMETERS
@@ -123,6 +121,7 @@ prevcallfile=prev_calls_${scriptname%\.*}.log
 echo -e "\n$(date +"%F %T")" >> "$prevcallfile"
 echo "${0}" "${@}" >> "$prevcallfile"
 
+# check if parameters make sense
 
 executable_path=$executable_dir/$executable
 if [ ! -f "$executable_path" ]; then echo "ERROR: Executable does not exist!"; exit 1; fi
@@ -136,6 +135,31 @@ if [ "$load_conf" -eq 2 ] && [ ! "$conf_nr" ] ; then
     echo "ERROR: load_conf=2 but no --conf_nr was given!"
     exit 1
 fi
+
+# multiply single parameters
+
+parameters=("write_every") #Lattice" "Nodes" "beta" "mass_s" "mass_ud" "rat_file")
+for param in "${parameters[@]}" ; do
+
+    param_name=${param}
+    declare -n param
+
+    if [ ${#param[@]} -eq 1 ] ; then
+        echo "Using single parameter ${param_name} for all ${n_sim_steps} arguments."
+
+        # append n_sim_steps-1 copies of the parameter.
+        for ((i=1; i<n_sim_steps; i++)) ; do
+            param+=("${param[0]}")
+        done
+    fi
+
+    if [ ${#param[@]} -ne "$n_sim_steps" ] ; then
+        echo "ERROR: $param_name should have either a single or $n_sim_steps (=n_sim_steps) arguments."
+    fi
+    unset -n param
+done
+
+echo "${write_every[@]}"
 
 
 # parser slurm options
