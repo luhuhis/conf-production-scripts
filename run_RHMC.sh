@@ -138,7 +138,9 @@ fi
 
 # multiply single parameters
 
-parameters=("write_every") #Lattice" "Nodes" "beta" "mass_s" "mass_ud" "rat_file")
+echo "${write_every[@]}"
+
+parameters=("write_every" "load_conf") #Lattice" "Nodes" "beta" "mass_s" "mass_ud" "rat_file")
 for param in "${parameters[@]}" ; do
 
     param_name=${param}
@@ -160,6 +162,7 @@ for param in "${parameters[@]}" ; do
 done
 
 echo "${write_every[@]}"
+echo "${load_conf[@]}"
 
 
 # parser slurm options
