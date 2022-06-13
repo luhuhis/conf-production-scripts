@@ -26,8 +26,8 @@ EOF
 args = parser.parse_args()
 
 for group in parser._action_groups:
-    for a in group._group_actions:       
-        key = a.dest 
+    for a in group._group_actions:
+        key = a.dest
         value = getattr(args, key, None)
         suffix = ""
         #print("echo "+group.title)
@@ -251,6 +251,7 @@ cgMax=(${cgMax[@]})
 always_acc=(${always_acc[@]})
 custom_cmds=(${custom_cmds[@]@Q})
 
+arr_pids=()
 
 for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
@@ -265,31 +266,34 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     gauge_file="\${gaugedir}/\${conftype[i]}\${stream_id[i]}."
 
-    # determine conf_nr and check if gauge_file exists
+    # determine conf_nr
     if [ \${load_conf[i]} -ne 2 ] ; then
         this_conf_nr=0
     elif [ "\${conf_nr[i]}" == "auto" ] ; then
         last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -r | head -n1)
-	echo "last conf: \${last_conf}"
-	this_conf_nr=\${last_conf##*.}
-        echo "INFO: setting conf_nr = \${this_conf_nr}"
+        echo "last conf: \${last_conf}"
+        this_conf_nr=\${last_conf##*.}
+        echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
     else
         this_conf_nr="\${conf_nr[i]}"
     fi
-    echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
-    if [ ! -f "\${gauge_file}\${this_conf_nr}" ] ; then
-        echo "WARN: gauge_file does not exist"
+
+    # check if gauge_file exists
+    if [ ! -f "\${gauge_file}\${this_conf_nr}" ] && [ \${load_conf[i]} -eq 2 ] ; then
+        echo "ERROR: gauge_file \${gauge_file}\${this_conf_nr} does not exist"
     fi
-    # determine rand_file and check if it exists
+
+    # determine rand_file
     if [ "\${rand_file[i]}" == "auto" ] ; then
         this_rand_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}_rand."
+        echo "INFO: rand_file = \${this_rand_file}\$this_conf_nr"
     else
         this_rand_file="\${rand_file[i]}"
     fi
-    echo "INFO: rand_file = \${this_rand_file}\$this_conf_nr"
+
+    # check if rand_file exists
     if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
-        echo "ERROR: given rand_file does not exist or autodetect failed! (you specified --rand_flag=1)"
-        exit 1
+        echo "ERROR: given rand_file does not exist or autodetect of conf_nr failed! (you specified --rand_flag=1)"
     fi
 
     paramfile=\${paramdir}/\${conftype[i]}_\${stream_id[i]}.\${this_conf_nr}.param
@@ -341,8 +345,24 @@ write_every = \${write_every[i]}
     echo -e "\$run_command \\n"
     ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out ) &
 
+    arr_pids+=(\$!)
+
 done
-wait
+
+# get and check the exit codes of all parallel job steps
+for ((i=0;i<${n_sim_steps} ;i++)); do
+
+    pid="\${arr_pids[i]}"
+    if [ -z \${arr_pids[i]} ] ; then
+        continue
+    fi
+    if wait \$pid ; then
+        echo "SUCESS: \${conftype[i]}\${stream_id[i]}"
+    else
+        echo "ERROR: \${conftype[i]}\${stream_id[i]}"
+    fi
+done
+
 
 echo -e "End \$(date +"%F %T")\\n"
 EOF
