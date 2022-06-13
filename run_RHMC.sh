@@ -1,13 +1,9 @@
 #!/bin/bash
-
-Lattice=""; Nodes=""; beta=""; mass_s="", mass_ud=""; step_size=""; no_md=""; no_step_sf=""; no_sw=""; residue=""; residue_force=""; residue_meas="";
-cgMax=""; always_acc=""; rat_file=""; rand_flag=""; rand_file=""; seed=""; load_conf=""; gauge_file=""; conf_nr=""; no_updates=""; write_every=""
-executable_dir=""; executable=""; output_base_path=""; conftype=""; stream_id="";
-jobname=""; mail_type=""; mail_user=""; partition=""; qos=""; nodes=""; time=""; account=""; module_load=""; gpuspernode="";
-n_sim_steps=""
+# requires bash 4.4 or greater
 
 argparse(){
     #Copyright (c) 2017 Noah Hoffman
+    local argparser
     argparser=$(mktemp 2>/dev/null || mktemp -t argparser)
     cat > "$argparser" <<EOF
 from __future__ import print_function
@@ -28,22 +24,27 @@ EOF
 
     cat >> "$argparser" <<EOF
 args = parser.parse_args()
-for arg in [a for a in dir(args) if not a.startswith('_')]:
-    key = arg
-    value = getattr(args, arg, None)
-    if isinstance(value, bool) or value is None:
-        print('{0}="{1}";'.format(key, 'yes' if value else ''))
-    elif isinstance(value, list):
-        print('{0}=({1});'.format(key, ' '.join('"{0}"'.format(s) for s in value)))
-    else:
-        print('{0}="{1}";'.format(key, value))
+
+arg_groups={}
+for group in parser._action_groups:
+    for arg in [a for a in dir(group._group_actions) if not a.startswith('_')]:
+        key = arg
+        value = getattr(args, arg, None)
+
+        if isinstance(value, bool) or value is None:
+            print('{0}="{1}"; ARGS_BOOL+=("{0}");'.format(key, 'yes' if value else ''))
+        elif isinstance(value, list):
+            print('{0}=({1}); ARGS_LIST+=("{0}");'.format(key, ' '.join('"{0}"'.format(s) for s in value)))
+        else:
+            print('{0}="{1}"; ARGS_STRG+=("{0}");'.format(key, value))
 EOF
 
     # Define variables corresponding to the options if the args can be
     # parsed without errors; otherwise, print the text of the error
     # message.
+    local retval
     if python "$argparser" "$@" &> /dev/null; then
-        eval $(python "$argparser" "$@")
+        eval "$(python "$argparser" "$@")"
         retval=0
     else
         python "$argparser" "$@"
@@ -56,64 +57,72 @@ EOF
 ARGPARSE_DESCRIPTION="Script to run RHMC on large clusters"
 argparse "$@" <<EOF || exit 1
 
+param_arrays = parser.add_argument_group('Arguments where single entries can be used for all n_sim_steps.')
+
 # GENERAL PARAMETERS
 parser.add_argument('--module_load', nargs='*', help="modules will be loaded at the start of the sbatch script. example: --module_load gcc8 cmake3 cuda11")
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
 parser.add_argument('--executable', help="filename of the gradientFlow exectuable inside the folder", default="RHMC")
 
+parser.add_argument('--custom_cmds', nargs='*', type=str, help="commands to execute before job steps. the nth argument is executed before the nth job step. useful to set different CUDA_VISIBLE_DEVICES.")
+
 parser.add_argument('--n_sim_steps', type=int, default=1, help='how many slurm steps can be executed at the same time. useful for multiple single gpu runs on a full node.')
-parser.add_argument('--conftype', nargs='*', type=str, required=True, help="used to deduce the input/output file names, e.g. l9636f21b8249m002022m01011")
-parser.add_argument('--stream_id', nargs='*', type=str, required=True, help="used to deduce output file names")
+param_arrays.add_argument('--conftype', nargs='*', type=str, required=True, help="used to deduce the input/output file names, e.g. l9636f21b8249m002022m01011")
+param_arrays.add_argument('--stream_id', nargs='*', type=str, required=True, help="used to deduce output file names")
 
 # GAUGE CONF PARAMETERS
-parser.add_argument('--Lattice', nargs='*', type=str, required=True, help="Lattice dimensions")
-parser.add_argument('--Nodes', nargs='*', type=str,  required=True, help="how many times to split the Lattice in each direction (x y z t). this determines the number of GPUs for each job step.")
-parser.add_argument('--beta', nargs='*', type=float, required=True)
-parser.add_argument('--mass_s', nargs='*', type=float, required=True)
-parser.add_argument('--mass_ud', nargs='*', type=float, required=True)
-parser.add_argument('--rat_file', nargs='*', type=str, required=True)
-parser.add_argument('--rand_file', nargs='*', type=str, default="auto")
+param_arrays.add_argument('--Lattice', nargs='*', type=str, required=True, help="Lattice dimensions")
+param_arrays.add_argument('--Nodes', nargs='*', type=str,  required=True, help="how many times to split the Lattice in each direction (x y z t). this determines the number of GPUs for each job step.")
+param_arrays.add_argument('--beta', nargs='*', type=float, required=True)
+param_arrays.add_argument('--mass_s', nargs='*', type=float, required=True)
+param_arrays.add_argument('--mass_ud', nargs='*', type=float, required=True)
+param_arrays.add_argument('--rat_file', nargs='*', type=str, required=True)
+param_arrays.add_argument('--conf_nr', nargs='*', default="auto", help="conf number of start configuration")
+param_arrays.add_argument('--no_updates', nargs='*', type=int, default=1000, help="number of updates")
+param_arrays.add_argument('--load_conf', nargs='*', type=int, required=True, help="0=einhei, 1=random, 2=getconf")
+param_arrays.add_argument('--rand_flag', nargs='*', type=int, required=True, help="0=new random numbers, 1=read in random numbers")
+param_arrays.add_argument('--write_every', nargs='*', type=int, default=1, required=True, help="write out configuration after this number of updates.")
+param_arrays.add_argument('--rand_file', nargs='*', type=str, default="auto")
+
 parser.add_argument('--seed', nargs='*', type=int, required=True)
-parser.add_argument('--conf_nr', nargs='*', default="auto", help="conf number of start configuration")
-parser.add_argument('--no_updates', nargs='*', type=int, default=1000, help="number of updates")
-parser.add_argument('--load_conf', nargs='*', type=int, required=True, help="0=einhei, 1=random, 2=getconf")
-parser.add_argument('--rand_flag', default='*', type=int, required=True, help="0=new random numbers, 1=read in random numbers")
-parser.add_argument('--write_every', type=int, nargs='*', default=1, required=True, help="write out configuration after this number of updates.")
 
-parser.add_argument('--step_size', type=float, default=0.05, help="step size of trajectory")
-parser.add_argument('--no_md', type=int, default=20, help="number of steps of trajectory")
-parser.add_argument('--no_step_sf', type=int, default=5, help="number of steps of strange quark integration")
-parser.add_argument('--no_sw', type=int, default=20, help="number of steps of gauge integration")
+param_arrays.add_argument('--step_size', nargs='*', type=float, default=0.05, help="step size of trajectory")
+param_arrays.add_argument('--no_md', nargs='*', type=int, default=20, help="number of steps of trajectory")
+param_arrays.add_argument('--no_step_sf', nargs='*', type=int, default=5, help="number of steps of strange quark integration")
+param_arrays.add_argument('--no_sw', nargs='*', type=int, default=20, help="number of steps of gauge integration")
 
-parser.add_argument('--residue', type=float, default=1e-12, help="for inversions")
-parser.add_argument('--residue_force', type=float, default=1e-7)
-parser.add_argument('--residue_meas', type=float, default=1e-12)
+param_arrays.add_argument('--residue', nargs='*', type=float, default=1e-12, help="for inversions")
+param_arrays.add_argument('--residue_force', nargs='*', type=float, default=1e-7)
+param_arrays.add_argument('--residue_meas', nargs='*', type=float, default=1e-12)
 
-parser.add_argument('--cgMax', type=int, default=30000, help="max cg steps for multi mass solver")
-parser.add_argument('--always_acc', type=int, choices=[0,1], default=0, help="1 = always accept configuration in Metropolis")
+param_arrays.add_argument('--cgMax', nargs='*', type=int, default=30000, help="max cg steps for multi mass solver")
+param_arrays.add_argument('--always_acc', nargs='*', type=int, default=0, help="1 = always accept configuration in Metropolis. default=0.")
 
 
 # SLURM PARAMETERS
 parser.add_argument('--no_srun', action='store_true', help="launch the executable without srun. useful for badly configured systems.")
 parser.add_argument('--jobname', required=True, help="slurm job name")
-parser.add_argument('--mail_user', required=True)
-parser.add_argument('--mail_type', default="FAIL")
+parser.add_argument('--mail_user', type=str, required=True)
+parser.add_argument('--mail_type', type=str, default="FAIL")
 
 parser.add_argument('--time', help="format: DD-HH:MM:SS", required=True)
-parser.add_argument('--partition')
-parser.add_argument('--qos')
-parser.add_argument('--account')
-parser.add_argument('--constraint')
-parser.add_argument('--sbatch_custom', help='this is appended to "#SBATCH --" in the sbatch script')
+parser.add_argument('--partition', type=str)
+parser.add_argument('--qos', type=str)
+parser.add_argument('--account', type=str)
+parser.add_argument('--constraint', type=str)
+parser.add_argument('--sbatch_custom', type=str, help='this is appended to "#SBATCH --" in the sbatch script')
 
-parser.add_argument('--nodes', required=True, help='number of nodes')
-parser.add_argument('--gpuspernode', required=True)
+parser.add_argument('--nodes', type=int, required=True, help='number of nodes')
+parser.add_argument('--gpuspernode', type=int, required=True)
 
-parser.add_argument('--custom_cmds', nargs='*', type=str, help="commands to execute before job steps. the nth argument is executed before the nth job step. useful to set different CUDA_VISIBLE_DEVICES.")
-parser.add_argument('--array', help="use something lik 0-99:1 to let only one instance run simultaneously")
+parser.add_argument('--array', help="use something like 0-99:1 to let only one instance run simultaneously")
 
 EOF
+
+echo "${ARGS_BOOL[@]}"
+echo "${ARGS_LIST[@]}"
+echo "${ARGS_STRG[@]}"
 
 #===========================SAVE SCRIPT CALLS IN FILE==========================
 scriptname=${0##*/}
@@ -136,11 +145,10 @@ if [ "$load_conf" -eq 2 ] && [ ! "$conf_nr" ] ; then
     exit 1
 fi
 
-# multiply single parameters
+parameters=("Lattice" "Nodes" "beta" "mass_s" "mass_ud" "rat_file" "conf_nr" "no_updates" "load_conf" "rand_flag" "rand_file" "write_every" "step_size" "no_md"
+"no_step_sf" "no_sw" "residue")
 
-echo "${write_every[@]}"
-
-parameters=("write_every" "load_conf") #Lattice" "Nodes" "beta" "mass_s" "mass_ud" "rat_file")
+# make all parameters be an array with n_sim_steps entries by appending the single entry n_sim_steps-1 times.
 for param in "${parameters[@]}" ; do
 
     param_name=${param}
@@ -154,15 +162,21 @@ for param in "${parameters[@]}" ; do
             param+=("${param[0]}")
         done
     fi
-
-    if [ ${#param[@]} -ne "$n_sim_steps" ] ; then
-        echo "ERROR: $param_name should have either a single or $n_sim_steps (=n_sim_steps) arguments."
-    fi
     unset -n param
 done
 
-echo "${write_every[@]}"
-echo "${load_conf[@]}"
+parameters+=("seed")  # seeds should always be different
+
+# check if all parameters now have the correct number of entries
+for param in "${parameters[@]}" ; do
+    param_name=${param}
+    declare -n param
+    if [ ${#param[@]} -ne "$n_sim_steps" ] ; then
+        echo "ERROR: --$param_name should have either a single or $n_sim_steps (=n_sim_steps) arguments."
+        exit 1
+    fi
+    unset -n param
+done
 
 
 # parser slurm options
