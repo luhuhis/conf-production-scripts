@@ -224,6 +224,10 @@ $SBATCH_CUSTOM
 module load ${module_load[@]}
 module list |& cat
 
+echo -e "Start \$(date +"%F %T")\\n"
+echo -e "\$SLURM_JOB_ID \$SLURM_JOB_NAME | \$(hostname) | \$(pwd) \\n"
+
+
 # "export" arrays to sub shell. unfortunately we need to hardcode this (see https://www.mail-archive.com/bug-bash@gnu.org/msg01774.html)
 conftype=(${conftype[@]})
 stream_id=(${stream_id[@]})
@@ -253,9 +257,8 @@ custom_cmds=(${custom_cmds[@]@Q})
 
 arr_pids=()
 
-for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
-    echo "conftype = \${conftype[i]}"
+for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     #create some paths and directories
     gaugedir="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}"
@@ -271,9 +274,9 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         this_conf_nr=0
     elif [ "\${conf_nr[i]}" == "auto" ] ; then
         last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -r | head -n1)
-        echo "last conf: \${last_conf}"
+        # echo "last conf: \${last_conf}"
         this_conf_nr=\${last_conf##*.}
-        echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
+        # echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
     else
         this_conf_nr="\${conf_nr[i]}"
     fi
@@ -286,7 +289,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     # determine rand_file
     if [ "\${rand_file[i]}" == "auto" ] ; then
         this_rand_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}_rand."
-        echo "INFO: rand_file = \${this_rand_file}\$this_conf_nr"
+        # echo "INFO: rand_file = \${this_rand_file}\$this_conf_nr"
     else
         this_rand_file="\${rand_file[i]}"
     fi
@@ -298,8 +301,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     paramfile=\${paramdir}/\${conftype[i]}_\${stream_id[i]}.\${this_conf_nr}.param
 
-    parameters="
-Lattice = \${Lattice[i]}
+    parameters="Lattice = \${Lattice[i]}
 Nodes = \${Nodes[i]}
 beta    =  \${beta[i]}
 mass_s  =  \${mass_s[i]}
@@ -321,12 +323,9 @@ load_conf = \${load_conf[i]}
 gauge_file = \${gauge_file}
 conf_nr = \${this_conf_nr}
 no_updates = \${no_updates[i]}
-write_every = \${write_every[i]}
-"
-    echo "\$parameters" > "\$paramfile"
+write_every = \${write_every[i]}"
 
-    echo -e "\$SLURM_JOB_ID \$SLURM_JOB_NAME | \$(hostname) | \$(pwd) \\n"
-    echo -e "Start \$(date +"%F %T")\\n"
+    echo "\$parameters" > "\$paramfile"
 
     eval \${custom_cmds[i]}
 
@@ -341,7 +340,6 @@ write_every = \${write_every[i]}
         run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
     fi
 
-    echo "\$ROCR_VISIBLE_DEVICES"
     echo -e "\$run_command \\n"
     ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out ) &
 
@@ -357,7 +355,7 @@ for ((i=0;i<${n_sim_steps} ;i++)); do
         continue
     fi
     if wait \$pid ; then
-        echo "SUCESS: \${conftype[i]}\${stream_id[i]}"
+        echo "SUCCESS: \${conftype[i]}\${stream_id[i]}"
     else
         echo "ERROR: \${conftype[i]}\${stream_id[i]}"
     fi

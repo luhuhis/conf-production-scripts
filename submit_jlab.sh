@@ -19,9 +19,6 @@ rat_files=("rat.out_ml003946ms019730Nfl2Nfs1Npf1" "rat.out_ml003446ms017230Nfl2N
 
 visible_dev=(0 1 2 3 4 5 6 7)
 
-nodes=1
-no_updates=5
-
 # arrange labels in the correct format for the run script.
 
 conftypes=()
@@ -29,12 +26,9 @@ streams=()
 Lattice=()
 beta=()
 mass_s=()
-Nodes=("\"1 1 1 1\"")
 seeds=()
 rat_file=()
-rand_file=("auto")
 custom_cmds=()
-conf_nr=("auto")
 for idx in "${!Nts[@]}"; do
     streams+=(a)
     streams+=(b)
@@ -65,17 +59,20 @@ script_call=$(cat <<DELIM
 --conftype ${conftypes[@]} \
 --stream_id ${streams[@]} \
 --Lattice ${Lattice[@]} \
---Nodes ${Nodes[@]} \
+--Nodes "1 1 1 1" \
 --beta ${beta[@]} --mass_s ${mass_s[@]} --mass_ud ${mass_ud[@]} \
 --rat_file ${rat_file[@]} \
---seed ${seeds[@]} --rand_file ${rand_file[@]} \
+--seed ${seeds[@]} --rand_file auto \
 --jobname RHMC_${Ns}Nt --mail_user laltenkor@bnl.gov \
---time 00:30:00 --nodes ${nodes} --gpuspernode 8 \
---account thermo21g --partition 21g --qos debug \
---conf_nr ${conf_nr[@]} \
+--time 24:00:00 --nodes 1 --gpuspernode 8 \
+--account thermo21g --partition 21g --qos normal \
+--conf_nr auto \
 --custom_cmds ${custom_cmds[@]} \
---no_updates ${no_updates} \
+--no_md 1 --no_step_sf 1 --no_sw 1 --step_size 1 \
+--no_updates 1 \
 --rand_flag 0 \
+--always_acc 1 \
+--cgMax 1 \
 --write_every 1 --load_conf 2 2 2 2 2 2 0 0 \
 --no_srun
 DELIM
