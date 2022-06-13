@@ -17,7 +17,6 @@ seeds_names=("seeds_7570" "seeds_7704" "seeds_8068" "seeds_8147")
 rat_path="/volatile/thermo/laltenko/conf/rat_approx/"
 rat_files=("rat.out_ml003946ms019730Nfl2Nfs1Npf1" "rat.out_ml003446ms017230Nfl2Nfs1Npf1" "rat.out_ml002408ms012040Nfl2Nfs1Npf1" "rat.out_ml002230ms011150Nfl2Nfs1Npf1")
 
-#visible_dev=(128 129 130 131 132 133 134 135)
 visible_dev=(0 1 2 3 4 5 6 7)
 
 nodes=1
@@ -30,12 +29,12 @@ streams=()
 Lattice=()
 beta=()
 mass_s=()
-Nodes=()
+Nodes=("\"1 1 1 1\"")
 seeds=()
 rat_file=()
-rand_file=()
+rand_file=("auto")
 custom_cmds=()
-conf_nr=()
+conf_nr=("auto")
 for idx in "${!Nts[@]}"; do
     streams+=(a)
     streams+=(b)
@@ -49,12 +48,9 @@ for idx in "${!Nts[@]}"; do
         beta+=("$(echo "scale=3; ${betas[idx]}/1000" | bc -l)")
         mass_s+=("0$(echo "scale=5; ${mass_strange[idx]}/100000" | bc -l)")
         mass_ud+=("0$(echo "scale=6; ${mass_light[idx]}/1000000" | bc -l)")
-        Nodes+=("\"1 1 1 1\"")
         seeds+=("${this_seeds[i]}")
         rat_file+=("${rat_path}${rat_files[idx]}")
-	rand_file+=(auto)
 	custom_cmds+=("\"unset CUDA_VISIBLE_DEVICES; export ROCR_VISIBLE_DEVICES=${visible_dev[i+idx*2]}\"")
-	conf_nr+=(auto)
     done
 
     unset -n this_seeds
@@ -80,11 +76,11 @@ script_call=$(cat <<DELIM
 --custom_cmds ${custom_cmds[@]} \
 --no_updates ${no_updates} \
 --rand_flag 0 \
+--write_every 1 --load_conf 2 2 2 2 2 2 0 0 \
 --no_srun
 DELIM
 )
 
-#--custom_cmds ${custom_cmds[@]} \
 echo "$script_call"
 
 echo -n "Continue y/n? "

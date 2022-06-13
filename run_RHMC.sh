@@ -25,18 +25,23 @@ EOF
     cat >> "$argparser" <<EOF
 args = parser.parse_args()
 
-arg_groups={}
 for group in parser._action_groups:
-    for arg in [a for a in dir(group._group_actions) if not a.startswith('_')]:
-        key = arg
-        value = getattr(args, arg, None)
-
+    for a in group._group_actions:       
+        key = a.dest 
+        value = getattr(args, key, None)
+        suffix = ""
+        #print("echo "+group.title)
+        if group.title == "Parameters with either a single OR n_sim_steps arguments.":
+            suffix = "_VAR"
         if isinstance(value, bool) or value is None:
-            print('{0}="{1}"; ARGS_BOOL+=("{0}");'.format(key, 'yes' if value else ''))
+            tmp_str = '{0}="{1}"; ARGS'+suffix+'+=("{0}");'
+            print(tmp_str.format(key, 'yes' if value else ''))
         elif isinstance(value, list):
-            print('{0}=({1}); ARGS_LIST+=("{0}");'.format(key, ' '.join('"{0}"'.format(s) for s in value)))
+            tmp_str = '{0}=({1}); ARGS'+suffix+'+=("{0}");'
+            print(tmp_str.format(key, ' '.join('"{0}"'.format(s) for s in value)))
         else:
-            print('{0}="{1}"; ARGS_STRG+=("{0}");'.format(key, value))
+            tmp_str = '{0}="{1}"; ARGS'+suffix+'+=("{0}");'
+            print(tmp_str.format(key, value))
 EOF
 
     # Define variables corresponding to the options if the args can be
@@ -57,7 +62,8 @@ EOF
 ARGPARSE_DESCRIPTION="Script to run RHMC on large clusters"
 argparse "$@" <<EOF || exit 1
 
-param_arrays = parser.add_argument_group('Arguments where single entries can be used for all n_sim_steps.')
+param_single = parser.add_argument_group('Parameters')
+param_arrays = parser.add_argument_group('Parameters with either a single OR n_sim_steps arguments.')
 
 # GENERAL PARAMETERS
 parser.add_argument('--module_load', nargs='*', help="modules will be loaded at the start of the sbatch script. example: --module_load gcc8 cmake3 cuda11")
@@ -85,7 +91,6 @@ param_arrays.add_argument('--rand_flag', nargs='*', type=int, required=True, hel
 param_arrays.add_argument('--write_every', nargs='*', type=int, default=1, required=True, help="write out configuration after this number of updates.")
 param_arrays.add_argument('--rand_file', nargs='*', type=str, default="auto")
 
-parser.add_argument('--seed', nargs='*', type=int, required=True)
 
 param_arrays.add_argument('--step_size', nargs='*', type=float, default=0.05, help="step size of trajectory")
 param_arrays.add_argument('--no_md', nargs='*', type=int, default=20, help="number of steps of trajectory")
@@ -98,6 +103,7 @@ param_arrays.add_argument('--residue_meas', nargs='*', type=float, default=1e-12
 
 param_arrays.add_argument('--cgMax', nargs='*', type=int, default=30000, help="max cg steps for multi mass solver")
 param_arrays.add_argument('--always_acc', nargs='*', type=int, default=0, help="1 = always accept configuration in Metropolis. default=0.")
+parser.add_argument('--seed', nargs='*', type=int, required=True)
 
 
 # SLURM PARAMETERS
@@ -120,10 +126,6 @@ parser.add_argument('--array', help="use something like 0-99:1 to let only one i
 
 EOF
 
-echo "${ARGS_BOOL[@]}"
-echo "${ARGS_LIST[@]}"
-echo "${ARGS_STRG[@]}"
-
 #===========================SAVE SCRIPT CALLS IN FILE==========================
 scriptname=${0##*/}
 prevcallfile=prev_calls_${scriptname%\.*}.log
@@ -145,8 +147,8 @@ if [ "$load_conf" -eq 2 ] && [ ! "$conf_nr" ] ; then
     exit 1
 fi
 
-parameters=("Lattice" "Nodes" "beta" "mass_s" "mass_ud" "rat_file" "conf_nr" "no_updates" "load_conf" "rand_flag" "rand_file" "write_every" "step_size" "no_md"
-"no_step_sf" "no_sw" "residue")
+# echo "${ARGS_VAR[@]}"
+parameters=("${ARGS_VAR[@]}")
 
 # make all parameters be an array with n_sim_steps entries by appending the single entry n_sim_steps-1 times.
 for param in "${parameters[@]}" ; do
@@ -155,7 +157,7 @@ for param in "${parameters[@]}" ; do
     declare -n param
 
     if [ ${#param[@]} -eq 1 ] ; then
-        echo "Using single parameter ${param_name} for all ${n_sim_steps} arguments."
+        echo "INFO: Only a single argument was given for ${param_name}. This will be used for all ${n_sim_steps} job steps."
 
         # append n_sim_steps-1 copies of the parameter.
         for ((i=1; i<n_sim_steps; i++)) ; do
@@ -222,7 +224,7 @@ $SBATCH_CUSTOM
 module load ${module_load[@]}
 module list |& cat
 
-# "export" arrays to sub shell
+# "export" arrays to sub shell. unfortunately we need to hardcode this (see https://www.mail-archive.com/bug-bash@gnu.org/msg01774.html)
 conftype=(${conftype[@]})
 stream_id=(${stream_id[@]})
 conf_nr=(${conf_nr[@]})
@@ -234,7 +236,21 @@ mass_ud=(${mass_ud[@]})
 mass_s=(${mass_s[@]})
 seed=(${seed[@]})
 rat_file=(${rat_file[@]})
+no_updates=(${no_updates[@]})
+load_conf=(${load_conf[@]})
+rand_flag=(${rand_flag[@]})
+write_every=(${write_every[@]})
+step_size=(${step_size[@]})
+no_md=(${no_md[@]})
+no_step_sf=(${no_step_sf[@]})
+no_sw=(${no_sw[@]})
+residue=(${residue[@]})
+residue_force=(${residue_force[@]})
+residue_meas=(${residue_meas[@]})
+cgMax=(${cgMax[@]})
+always_acc=(${always_acc[@]})
 custom_cmds=(${custom_cmds[@]@Q})
+
 
 for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
@@ -250,27 +266,33 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     gauge_file="\${gaugedir}/\${conftype[i]}\${stream_id[i]}."
 
     # determine conf_nr and check if gauge_file exists
-    if [ "\${conf_nr[i]}" == "auto" ] ; then
+    if [ \${load_conf[i]} -ne 2 ] ; then
+        this_conf_nr=0
+    elif [ "\${conf_nr[i]}" == "auto" ] ; then
         last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -r | head -n1)
 	echo "last conf: \${last_conf}"
-	conf_nr=\${last_conf##*.}
-        echo "INFO: setting conf_nr = \$conf_nr"
+	this_conf_nr=\${last_conf##*.}
+        echo "INFO: setting conf_nr = \${this_conf_nr}"
+    else
+        this_conf_nr="\${conf_nr[i]}"
     fi
-    echo "INFO: gauge_file = \${gauge_file}\${conf_nr}"
-    if [ ! -f "\${gauge_file}\${conf_nr}" ] ; then
+    echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
+    if [ ! -f "\${gauge_file}\${this_conf_nr}" ] ; then
         echo "WARN: gauge_file does not exist"
     fi
     # determine rand_file and check if it exists
     if [ "\${rand_file[i]}" == "auto" ] ; then
         this_rand_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}_rand."
+    else
+        this_rand_file="\${rand_file[i]}"
     fi
-    echo "INFO: rand_file = \${this_rand_file}\$conf_nr"
-    if [ ! -f "\${this_rand_file}\${conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
+    echo "INFO: rand_file = \${this_rand_file}\$this_conf_nr"
+    if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
         echo "ERROR: given rand_file does not exist or autodetect failed! (you specified --rand_flag=1)"
         exit 1
     fi
 
-    paramfile=\${paramdir}/\${conftype[i]}_\${stream_id[i]}.\${conf_nr}.param
+    paramfile=\${paramdir}/\${conftype[i]}_\${stream_id[i]}.\${this_conf_nr}.param
 
     parameters="
 Lattice = \${Lattice[i]}
@@ -281,21 +303,21 @@ mass_ud = \${mass_ud[i]}
 rat_file = \${rat_file[i]}
 seed = \${seed[i]}
 rand_file = \${this_rand_file}
-step_size  = ${step_size}
-no_md      = ${no_md}
-no_step_sf = ${no_step_sf}
-no_sw      = ${no_sw}
-residue   = ${residue}
-residue_force = ${residue_force}
-residue_meas = ${residue_meas}
-cgMax  = ${cgMax}
-always_acc = ${always_acc}
-rand_flag = ${rand_flag}
-load_conf = ${load_conf}
+step_size  = \${step_size[i]}
+no_md      = \${no_md[i]}
+no_step_sf = \${no_step_sf[i]}
+no_sw      = \${no_sw[i]}
+residue   = \${residue[i]}
+residue_force = \${residue_force[i]}
+residue_meas = \${residue_meas[i]}
+cgMax  = \${cgMax[i]}
+always_acc = \${always_acc[i]}
+rand_flag = \${rand_flag[i]}
+load_conf = \${load_conf[i]}
 gauge_file = \${gauge_file}
-conf_nr = \${conf_nr}
-no_updates = ${no_updates}
-write_every = ${write_every}
+conf_nr = \${this_conf_nr}
+no_updates = \${no_updates[i]}
+write_every = \${write_every[i]}
 "
     echo "\$parameters" > "\$paramfile"
 
@@ -317,7 +339,7 @@ write_every = ${write_every}
 
     echo "\$ROCR_VISIBLE_DEVICES"
     echo -e "\$run_command \\n"
-    ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${conf_nr}.out ) &
+    ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out ) &
 
 done
 wait
