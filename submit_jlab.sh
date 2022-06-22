@@ -64,16 +64,17 @@ script_call=$(cat <<DELIM
 --rat_file ${rat_file[@]} \
 --seed ${seeds[@]} --rand_file auto \
 --jobname RHMC_${Ns}Nt --mail_user laltenkor@bnl.gov \
---time 24:00:00 --nodes 1 --gpuspernode 8 \
+--time 48:00:00 --nodes 1 --gpuspernode 8 \
 --account thermo21g --partition 21g --qos normal \
 --conf_nr auto \
 --custom_cmds ${custom_cmds[@]} \
---no_md 1 --no_step_sf 1 --no_sw 1 --step_size 1 \
---no_updates 1 \
---rand_flag 0 \
---always_acc 1 \
---cgMax 1 \
---write_every 1 --load_conf 2 2 2 2 2 2 0 0 \
+--no_updates 22 22 22 22 17 17 200 200 \
+--rand_flag 1 \
+--always_acc 0 0 0 0 0 0 1 1 \
+--write_every 1 --load_conf 2 \
+--no_md 20 20 20 20 20 20 4 4 \
+--step_size 0.05 0.05 0.05 0.05 0.05 0.05 0.25 0.25 \
+--array 0-99%1 \
 --no_srun
 DELIM
 )

@@ -122,7 +122,7 @@ parser.add_argument('--sbatch_custom', type=str, help='this is appended to "#SBA
 parser.add_argument('--nodes', type=int, required=True, help='number of nodes')
 parser.add_argument('--gpuspernode', type=int, required=True)
 
-parser.add_argument('--array', help="use something like 0-99:1 to let only one instance run simultaneously")
+parser.add_argument('--array', help="use something like 0-99%1 to let only one instance run simultaneously")
 
 EOF
 
