@@ -273,7 +273,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     if [ \${load_conf[i]} -ne 2 ] ; then
         this_conf_nr=0
     elif [ "\${conf_nr[i]}" == "auto" ] ; then
-        last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -r | head -n1)
+	last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -t '.' -k 2n | tac | head -n1 )
         # echo "last conf: \${last_conf}"
         this_conf_nr=\${last_conf##*.}
         # echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
