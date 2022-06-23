@@ -299,7 +299,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         echo "ERROR: given rand_file does not exist or autodetect of conf_nr failed! (you specified --rand_flag=1)"
     fi
 
-    paramfile=\${paramdir}/\${conftype[i]}_\${stream_id[i]}.\${this_conf_nr}.param
+    paramfile=\${paramdir}/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.param
 
     parameters="Lattice = \${Lattice[i]}
 Nodes = \${Nodes[i]}

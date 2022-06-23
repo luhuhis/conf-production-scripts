@@ -30,8 +30,8 @@ seeds=()
 rat_file=()
 custom_cmds=()
 for idx in "${!Nts[@]}"; do
-    streams+=(a)
-    streams+=(b)
+    streams+=("_1")
+    streams+=("_2")
 
     this_seeds="${seeds_names[idx]}"
     declare -n this_seeds
