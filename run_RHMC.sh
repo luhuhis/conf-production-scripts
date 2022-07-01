@@ -271,7 +271,6 @@ lz   = \$lx
 lt   = \$lt
 lat_precision_flag = 0
 lat_read_flag = \$19
-LC )
 lat_file      = \$20
 lat_number    = \$21
 seed = \$7
@@ -293,6 +292,9 @@ read_random_state = \$18
 no_sources_pbp_ud = 4
 cg_break_residual_pbp_ud = \$15
 max_rat_degree = 14
+
+\${cat \$6}
+"
 }
 
 
