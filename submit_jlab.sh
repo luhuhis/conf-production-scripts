@@ -1,51 +1,90 @@
 #!/bin/bash
-
 # File to run RHMC on jlab 21g
 
 Ns=64
 Nts=(20 20 24 22)
 betas=(7570 7704 8068 8147)  # divide by 1,000
-mass_s=(1973 1723 1204 1115)  # divide by 100,000
-mass_ud=(3946 3446 2408 2230)  # divide by 1,000,000
+mass_strange=(1973 1723 1204 1115)  # divide by 100,000
+mass_light=(3946 3446 2408 2230)  # divide by 1,000,000
 
-nodes=1
-Nodes=("1 1 1 1")
-no_updates=5
-
-streams=(a ) #b c d) # b c d
-
-seeds=("seeds_7570" "seeds_7704" "seeds_8068" "seeds_8147") #  "seeds_b" "seeds_c" "seeds_d")
+# streams a b c d
 seeds_7570=(642309 856827 382011 210878)
 seeds_7704=(892577 758420 985615 131065)
 seeds_8068=(768096 613374 358356 524410)
 seeds_8147=(954979 629458 789310 251736)
+seeds_names=("seeds_7570" "seeds_7704" "seeds_8068" "seeds_8147")
 
 rat_path="/volatile/thermo/laltenko/conf/rat_approx/"
 rat_files=("rat.out_ml003946ms019730Nfl2Nfs1Npf1" "rat.out_ml003446ms017230Nfl2Nfs1Npf1" "rat.out_ml002408ms012040Nfl2Nfs1Npf1" "rat.out_ml002230ms011150Nfl2Nfs1Npf1")
 
+visible_dev=(0 1 2 3 4 5 6 7)
 
+# arrange labels in the correct format for the run script.
+
+conftypes=()
+streams=()
+Lattice=()
+beta=()
+mass_s=()
+seeds=()
+rat_file=()
+custom_cmds=()
 for idx in "${!Nts[@]}"; do
-    this_seeds="${seeds[idx]}"
+    streams+=("_1")
+    streams+=("_2")
+
+    this_seeds="${seeds_names[idx]}"
     declare -n this_seeds
-    for idy in "${!streams[@]}" ; do
-./run_RHMC.sh \
---module_load rocm/5.1.3 mpi/openmpi-x86_64 \
---output_base_path /volatile/thermo/laltenko/conf \
---executable_dir /home/laltenko/code_build/SIMULATeQCD/build/applications \
---conftype l$Ns${Nts[idx]}f21b${betas[idx]}m00${mass_ud[idx]}m0${mass_s[idx]} \
---stream_id ${streams[idy]} \
---Lattice $Ns $Ns $Ns ${Nts[idx]} \
---Nodes ${Nodes} \
---beta $(echo "scale=3; ${betas[idx]}/1000" | bc -l) --mass_s 0$(echo "scale=5; ${mass_s[idx]}/100000" | bc -l) --mass_ud $(echo "scale=6; ${mass_ud[idx]}/1000000" | bc -l) \
---rat_file $rat_path${rat_files[idx]} \
---seed ${this_seeds[idy]} \
---jobname RHMC_$Ns${Nts[idx]}${streams[idy]} --mail_user laltenkor@bnl.gov \
---time 00:30:00 --nodes ${nodes} --gpuspernode 8 \
---account thermo21g --partition 21g --qos debug \
---custom_cmds "" \
---no_updates ${no_updates} \
---rand_flag 0 
+
+    for ((i=0; i<2; i++)); do
+        conftypes+=("l$Ns${Nts[idx]}f21b${betas[idx]}m00${mass_light[idx]}m0${mass_strange[idx]}")
+        Lattice+=("\"$Ns $Ns $Ns ${Nts[idx]}\"")
+        beta+=("$(echo "scale=3; ${betas[idx]}/1000" | bc -l)")
+        mass_s+=("0$(echo "scale=5; ${mass_strange[idx]}/100000" | bc -l)")
+        mass_ud+=("0$(echo "scale=6; ${mass_light[idx]}/1000000" | bc -l)")
+        seeds+=("${this_seeds[i]}")
+        rat_file+=("${rat_path}${rat_files[idx]}")
+	custom_cmds+=("\"unset CUDA_VISIBLE_DEVICES; export ROCR_VISIBLE_DEVICES=${visible_dev[i+idx*2]}\"")
     done
+
     unset -n this_seeds
 done
 
+script_call=$(cat <<DELIM
+./run_RHMC.sh \
+--module_load mpi/openmpi-x86_64 \
+--output_base_path /volatile/thermo/laltenko/conf \
+--executable_dir /home/laltenko/code_build/SIMULATeQCD/build/applications \
+--n_sim_steps 8 \
+--conftype ${conftypes[@]} \
+--stream_id ${streams[@]} \
+--Lattice ${Lattice[@]} \
+--Nodes "1 1 1 1" \
+--beta ${beta[@]} --mass_s ${mass_s[@]} --mass_ud ${mass_ud[@]} \
+--rat_file ${rat_file[@]} \
+--seed ${seeds[@]} --rand_file auto \
+--jobname RHMC_${Ns}Nt --mail_user laltenkor@bnl.gov \
+--time 48:00:00 --nodes 1 --gpuspernode 8 \
+--account thermo21g --partition 21g --qos normal \
+--conf_nr auto \
+--custom_cmds ${custom_cmds[@]} \
+--no_updates 22 22 22 22 17 17 200 200 \
+--rand_flag 1 \
+--always_acc 0 0 0 0 0 0 1 1 \
+--write_every 1 --load_conf 2 \
+--no_md 20 20 20 20 20 20 4 4 \
+--step_size 0.05 0.05 0.05 0.05 0.05 0.05 0.25 0.25 \
+--array 0-99%1 \
+--no_srun
+DELIM
+)
+
+echo "$script_call"
+
+echo -n "Continue y/n? "
+read -r input
+if [ "$input" != "y" ]; then
+    exit 0
+fi
+
+eval $script_call
