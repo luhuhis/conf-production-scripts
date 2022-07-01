@@ -59,13 +59,14 @@ EOF
     rm "$argparser"
     return $retval
 }
-ARGPARSE_DESCRIPTION="Script to run RHMC on large clusters"
+ARGPARSE_DESCRIPTION="Script to run SIMULATeQCD's RHMC on large clusters."
 argparse "$@" <<EOF || exit 1
 
 param_single = parser.add_argument_group('Parameters')
 param_arrays = parser.add_argument_group('Parameters with either a single OR n_sim_steps arguments.')
 
 # GENERAL PARAMETERS
+parser.add_argument('--code', default="SIMULATeQCD", choices=["SIMULATeQCD", "patrick"], help="patrick: change parameter file to use patricks cpu code and do not use GPUs in slurm")
 parser.add_argument('--module_load', nargs='*', help="modules will be loaded at the start of the sbatch script. example: --module_load gcc8 cmake3 cuda11")
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
@@ -107,7 +108,7 @@ parser.add_argument('--seed', nargs='*', type=int, required=True)
 
 
 # SLURM PARAMETERS
-parser.add_argument('--no_srun', action='store_true', help="launch the executable without srun. useful for badly configured systems.")
+parser.add_argument('--replace_srun', type=str, help="launch the executable with some other command, for example mpirun, mpiexec, stdbuf -i0 -o0 -e0, taskset 0xFFFF, etc.")
 parser.add_argument('--jobname', required=True, help="slurm job name")
 parser.add_argument('--mail_user', type=str, required=True)
 parser.add_argument('--mail_type', type=str, default="FAIL")
@@ -181,7 +182,7 @@ for param in "${parameters[@]}" ; do
 done
 
 
-# parser slurm options
+# parse slurm options
 if [ "$qos" ] ; then
     SBATCH_QOS="#SBATCH --qos=$qos"
 fi
@@ -200,6 +201,16 @@ fi
 if [ "$sbatch_custom" ] ; then
     SBATCH_CUSTOM="#SBATCH --$sbatch_custom"
 fi
+if [ "$code" == "SIMULATeQCD" ] ; then
+    SBATCH_GPUS="#SBATCH --gres=gpu:${gpuspernode}"
+fi
+
+
+param_func="set_parameters_SIMULATeQCD"
+if [ "$code" == "patrick" ] ; then
+    param_func="set_parameters_patrick"
+fi
+
 
 logdir=${output_base_path}/logs
 mkdir -p "$logdir"
@@ -219,7 +230,72 @@ $SBATCH_ARRAY
 $SBATCH_CUSTOM
 #SBATCH --nodes=$nodes
 #SBATCH --time=$time
-#SBATCH --gres=gpu:${gpuspernode}
+$SBATCH_GPUS
+
+
+set_parameters_SIMULATeQCD () {
+parameters="Lattice = \$1
+Nodes = \$2
+beta    = \$3
+mass_s  =  \$4
+mass_ud = \$5
+rat_file = \$6
+seed = \$7
+rand_file = \$8
+step_size  = \$9
+no_md      = \$10
+no_step_sf = \$11
+no_sw      = \$12
+residue   = \$13
+residue_force = \$14
+residue_meas = \$15
+cgMax  = \$16
+always_acc = \$17
+rand_flag = \$18
+load_conf = \$19
+gauge_file = \$20
+conf_nr = \$21
+no_updates = \$22
+write_every = \$23"
+}
+
+set_parameters_patrick () {
+lx=\${1%% }
+lt=\${1## }
+parameters="write_stdout_to_file = 0
+stdout_file = /path/stdout
+beta = \$3
+lx   = \$lx
+ly   = \$lx
+lz   = \$lx
+lt   = \$lt
+lat_precision_flag = 0
+lat_read_flag = \$19
+LC )
+lat_file      = \$20
+lat_number    = \$21
+seed = \$7
+mass_ud = \$5
+mass_s  = \$4
+step_size = \$9
+no_steps_md      = \$10
+no_steps_1f      = \$11
+no_steps_gluonic = \$12
+cg_break_residual_ud        = \$13
+cg_break_residual_s         = \$13
+cg_break_residual_ud_update = \$13
+cg_break_residual_s_update  = \$13
+cg_max_iterations_rhmc = \$16
+always_accept = \$17
+no_updates = \$22
+write_conf_every_nth = \$23
+read_random_state = \$18
+no_sources_pbp_ud = 4
+cg_break_residual_pbp_ud = \$15
+max_rat_degree = 14
+}
+
+
 
 module load ${module_load[@]}
 module list |& cat
@@ -301,29 +377,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     paramfile=\${paramdir}/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.param
 
-    parameters="Lattice = \${Lattice[i]}
-Nodes = \${Nodes[i]}
-beta    =  \${beta[i]}
-mass_s  =  \${mass_s[i]}
-mass_ud = \${mass_ud[i]}
-rat_file = \${rat_file[i]}
-seed = \${seed[i]}
-rand_file = \${this_rand_file}
-step_size  = \${step_size[i]}
-no_md      = \${no_md[i]}
-no_step_sf = \${no_step_sf[i]}
-no_sw      = \${no_sw[i]}
-residue   = \${residue[i]}
-residue_force = \${residue_force[i]}
-residue_meas = \${residue_meas[i]}
-cgMax  = \${cgMax[i]}
-always_acc = \${always_acc[i]}
-rand_flag = \${rand_flag[i]}
-load_conf = \${load_conf[i]}
-gauge_file = \${gauge_file}
-conf_nr = \${this_conf_nr}
-no_updates = \${no_updates[i]}
-write_every = \${write_every[i]}"
+    $param_func \${Lattice[i]} \${Nodes[i]} \${beta[i]} \${mass_s[i]} \${mass_ud[i]} \${rat_file[i]} \${seed[i]} \${this_rand_file} \${step_size[i]} \${no_md[i]} \${no_step_sf[i]} \${no_sw[i]} \${residue[i]} \${residue_force[i]} \${residue_meas[i]} \${cgMax[i]} \${always_acc[i]} \${rand_flag[i]} \${load_conf[i]} \${gauge_file} \${this_conf_nr} \${no_updates[i]} \${write_every[i]}
 
     echo "\$parameters" > "\$paramfile"
 
@@ -334,8 +388,8 @@ write_every = \${write_every[i]}"
     logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
 
-    if [ $no_srun ] ; then
-        run_command="stdbuf -i0 -o0 -e0 ${executable_path} \$paramfile"
+    if [ ${replace_srun} ] ; then
+        run_command="${replace_srun} ${executable_path} \$paramfile"
     else
         run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
     fi
@@ -379,4 +433,4 @@ fi
 
 (sbatch <<< "$sbatchscript")
 
-echo "sbatch script submitted" >> prev_calls_"${0##*/}".log
+echo "sbatch script submitted" >> "$prevcallfile"
