@@ -245,20 +245,20 @@ rat_file = \$6
 seed = \$7
 rand_file = \$8
 step_size  = \$9
-no_md      = \$10
-no_step_sf = \$11
-no_sw      = \$12
-residue   = \$13
-residue_force = \$14
-residue_meas = \$15
-cgMax  = \$16
-always_acc = \$17
-rand_flag = \$18
-load_conf = \$19
-gauge_file = \$20
-conf_nr = \$21
-no_updates = \$22
-write_every = \$23"
+no_md      = \${10}
+no_step_sf = \${11}
+no_sw      = \${12}
+residue   = \${13}
+residue_force = \${14}
+residue_meas = \${15}
+cgMax  = \${16}
+always_acc = \${17}
+rand_flag = \${18}
+load_conf = \${19}
+gauge_file = \${20}
+conf_nr = \${21}
+no_updates = \${22}
+write_every = \${23}"
 }
 
 set_parameters_patrick () {
@@ -272,37 +272,38 @@ ly   = \$lx
 lz   = \$lx
 lt   = \$lt
 lat_precision_flag = 0
-lat_read_flag = \$19
-lat_file      = \$20
-lat_number    = \$21
+lat_read_flag = \${19}
+lat_file      = \${20}
+lat_number    = \${21}
 seed = \$7
 mass_ud = \$5
 mass_s  = \$4
 step_size = \$9
-no_steps_md      = \$10
-no_steps_1f      = \$11
-no_steps_gluonic = \$12
-cg_break_residual_ud        = \$13
-cg_break_residual_s         = \$13
-cg_break_residual_ud_update = \$13
-cg_break_residual_s_update  = \$13
-cg_max_iterations_rhmc = \$16
-always_accept = \$17
-no_updates = \$22
-write_conf_every_nth = \$23
-read_random_state = \$18
+no_steps_md      = \${10}
+no_steps_1f      = \${11}
+no_steps_gluonic = \${12}
+cg_break_residual_ud        = \${13}
+cg_break_residual_s         = \${13}
+cg_break_residual_ud_update = \${13}
+cg_break_residual_s_update  = \${13}
+cg_max_iterations_rhmc = \${16}
+always_accept = \${17}
+no_updates = \${22}
+write_conf_every_nth = \${23}
+read_random_state = \${18}
 no_sources_pbp_ud = 4
-cg_break_residual_pbp_ud = \$15
+cg_break_residual_pbp_ud = \${15}
 max_rat_degree = 14
 
-\${cat \$6}
+\$(cat \$6)
 "
 }
 
 
-
-module load ${module_load[@]}
-module list |& cat
+if [ "${module_load[@]}" ] ; then
+    module load ${module_load[@]}
+    module list |& cat
+fi
 
 echo -e "Start \$(date +"%F %T")\\n"
 echo -e "\$SLURM_JOB_ID \$SLURM_JOB_NAME | \$(hostname) | \$(pwd) \\n"
@@ -442,6 +443,8 @@ EOF
 echo -ne "\n===== BEGIN SBATCHSCRIPT ===\n"
 echo "$sbatchscript"
 echo -ne "===== END   SBATCHSCRIPT ===\n\n"
+
+echo "$sbatchscript" > jobscript.sh
 
 echo -en "\nSubmit y/n? "
 read -r input
