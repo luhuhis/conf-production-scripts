@@ -67,6 +67,8 @@ param_arrays = parser.add_argument_group('Parameters with either a single OR n_s
 
 # GENERAL PARAMETERS
 parser.add_argument('--code', default="SIMULATeQCD", choices=["SIMULATeQCD", "patrick"], help="patrick: change parameter file to use patricks cpu code and do not use GPUs in slurm")
+parser.add_argument('--ConfCheck_path', type=str, help="if provided and conf_nr=auto, then first ConfCheck is used to check whether the last conf is ok.
+                                              if it is not ok, then it will try the second to last conf.")
 parser.add_argument('--module_load', nargs='*', help="modules will be loaded at the start of the sbatch script. example: --module_load gcc8 cmake3 cuda11")
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
@@ -351,10 +353,10 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     if [ \${load_conf[i]} -ne 2 ] ; then
         this_conf_nr=0
     elif [ "\${conf_nr[i]}" == "auto" ] ; then
-	last_conf=\$(find \${gauge_file}* -printf "%f\n" | sort -t '.' -k 2n | tac | head -n1 )
-        # echo "last conf: \${last_conf}"
+	    last_conf=\$(find \${gauge_file}[0-9]* -printf "%f\n" | sort -t '.' -k 2n | tac | head -n1 )
+	    second_to_last_conf=\$(find \${gauge_file}[0-9]* -printf "%f\n" | sort -t '.' -k 2n | tac | head -n2 | tail -n1 )
         this_conf_nr=\${last_conf##*.}
-        # echo "INFO: gauge_file = \${gauge_file}\${this_conf_nr}"
+        this_conf_nr_second=\${second_to_last_conf##*.}
     else
         this_conf_nr="\${conf_nr[i]}"
     fi
@@ -377,6 +379,21 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         echo "ERROR: given rand_file does not exist or autodetect of conf_nr failed! (you specified --rand_flag=1)"
     fi
 
+    # check whether last conf is valid. if not, then check the second to last conf and use that one if it is valid.
+    if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] && [ -f "${ConfCheck_path}" ] ; then
+        "${ConfCheck_path}" EMPTY_FILE Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Gaugefile is broken: \${gauge_file}\${this_conf_nr}"
+            echo "INFO: Trying second to last one using conf_nr=\${this_conf_nr_second}"
+            "${ConfCheck_path}" EMPTY_FILE Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr_second}"
+            if [ $? -ne 0 ] ; then
+                "ERROR: Second to last gaugefile is also broken: \${gauge_file}\${this_conf_nr_second}"
+            else
+                this_conf_nr=\${this_conf_nr_second}
+            fi
+        fi
+    fi
+
     paramfile=\${paramdir}/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.param
 
     $param_func \${Lattice[i]} \${Nodes[i]} \${beta[i]} \${mass_s[i]} \${mass_ud[i]} \${rat_file[i]} \${seed[i]} \${this_rand_file} \${step_size[i]} \${no_md[i]} \${no_step_sf[i]} \${no_sw[i]} \${residue[i]} \${residue_force[i]} \${residue_meas[i]} \${cgMax[i]} \${always_acc[i]} \${rand_flag[i]} \${load_conf[i]} \${gauge_file} \${this_conf_nr} \${no_updates[i]} \${write_every[i]}
@@ -390,7 +407,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
 
-    if [ ${replace_srun} ] ; then
+    if [ "${replace_srun}" ] ; then
         run_command="${replace_srun} ${executable_path} \$paramfile"
     else
         run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
