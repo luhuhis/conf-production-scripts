@@ -73,6 +73,7 @@ parser.add_argument('--module_load', nargs='*', help="modules will be loaded at 
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
 parser.add_argument('--executable', help="filename of the gradientFlow exectuable inside the folder", default="RHMC")
+parser.add_argument('--save_jobscript', type=str, help="save the job script to this file")
 
 parser.add_argument('--custom_cmds', nargs='*', type=str, help="commands to execute before job steps. the nth argument is executed before the nth job step. useful to set different CUDA_VISIBLE_DEVICES.")
 
@@ -262,8 +263,8 @@ write_every = \${23}"
 }
 
 set_parameters_patrick () {
-lx=\${1%% }
-lt=\${1## }
+lx=\${1%% *}
+lt=\${1##* }
 parameters="write_stdout_to_file = 0
 stdout_file = /path/stdout
 beta = \$3
@@ -294,8 +295,18 @@ read_random_state = \${18}
 no_sources_pbp_ud = 4
 cg_break_residual_pbp_ud = \${15}
 max_rat_degree = 14
-
+bx = 8
+by = 8
+bz = 1
+bt = 4
+#
+sfx = 1
+sfy = 1
+sfz = 16
+sft = 1
+\$(cat patrick.cfg)
 \$(cat \$6)
+
 "
 }
 
@@ -343,7 +354,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     #create some paths and directories
     gaugedir="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}"
-    paramdir=${output_base_path}/\${conftype[i]}/param
+    paramdir="${output_base_path}/\${conftype[i]}/param"
 
     mkdir -p "\$gaugedir"
     mkdir -p "\$paramdir"
@@ -382,12 +393,12 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     # check whether last conf is valid. if not, then check the second to last conf and use that one if it is valid.
     if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] && [ -f "${ConfCheck_path}" ] ; then
-        "${ConfCheck_path}" EMPTY_FILE Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
-        if [ $? -ne 0 ] ; then
+        ${ConfCheck_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
+        if [ \$? -ne 0 ] ; then
             echo "ERROR: Gaugefile is broken: \${gauge_file}\${this_conf_nr}"
             echo "INFO: Trying second to last one using conf_nr=\${this_conf_nr_second}"
-            "${ConfCheck_path}" EMPTY_FILE Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr_second}"
-            if [ $? -ne 0 ] ; then
+            ${ConfCheck_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr_second}"
+            if [ \$? -ne 0 ] ; then
                 "ERROR: Second to last gaugefile is also broken: \${gauge_file}\${this_conf_nr_second}"
             else
                 this_conf_nr=\${this_conf_nr_second}
@@ -397,11 +408,12 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     paramfile=\${paramdir}/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.param
 
-    $param_func \${Lattice[i]} \${Nodes[i]} \${beta[i]} \${mass_s[i]} \${mass_ud[i]} \${rat_file[i]} \${seed[i]} \${this_rand_file} \${step_size[i]} \${no_md[i]} \${no_step_sf[i]} \${no_sw[i]} \${residue[i]} \${residue_force[i]} \${residue_meas[i]} \${cgMax[i]} \${always_acc[i]} \${rand_flag[i]} \${load_conf[i]} \${gauge_file} \${this_conf_nr} \${no_updates[i]} \${write_every[i]}
+    $param_func "\${Lattice[i]}" "\${Nodes[i]}" "\${beta[i]}" "\${mass_s[i]}" "\${mass_ud[i]}" "\${rat_file[i]}" "\${seed[i]}" "\${this_rand_file}" "\${step_size[i]}" "\${no_md[i]}" "\${no_step_sf[i]}" "\${no_sw[i]}" "\${residue[i]}" "\${residue_force[i]}" "\${residue_meas[i]}" "\${cgMax[i]}" "\${always_acc[i]}" "\${rand_flag[i]}" "\${load_conf[i]}" "\${gauge_file}" "\${this_conf_nr}" "\${no_updates[i]}" "\${write_every[i]}" 
 
     echo "\$parameters" > "\$paramfile"
 
-    eval \${custom_cmds[i]}
+    echo "\${custom_cmds[i]}"
+    eval "\${custom_cmds[i]}"
 
     this_Nodes=(\${Nodes[i]})
     numberofgpus=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
@@ -444,7 +456,9 @@ echo -ne "\n===== BEGIN SBATCHSCRIPT ===\n"
 echo "$sbatchscript"
 echo -ne "===== END   SBATCHSCRIPT ===\n\n"
 
-echo "$sbatchscript" > jobscript.sh
+if [ "$save_jobscript" ] ; then
+    echo "$sbatchscript" > $save_jobscript
+fi
 
 echo -en "\nSubmit y/n? "
 read -r input

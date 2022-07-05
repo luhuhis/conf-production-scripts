@@ -52,6 +52,7 @@ done
 
 script_call=$(cat <<DELIM
 ./run_RHMC.sh \
+--ConfCheck_path ~/code_build/SIMULATeQCD/build/applications/ConfCheck \
 --module_load mpi/openmpi-x86_64 \
 --output_base_path /volatile/thermo/laltenko/conf \
 --executable_dir /home/laltenko/code_build/SIMULATeQCD/build/applications \
@@ -68,14 +69,15 @@ script_call=$(cat <<DELIM
 --account thermo21g --partition 21g --qos normal \
 --conf_nr auto \
 --custom_cmds ${custom_cmds[@]} \
---no_updates 22 22 22 22 17 17 200 200 \
+--no_updates 1000 \
 --rand_flag 1 \
---always_acc 0 0 0 0 0 0 1 1 \
+--always_acc 0 \
 --write_every 1 --load_conf 2 \
---no_md 20 20 20 20 20 20 4 4 \
---step_size 0.05 0.05 0.05 0.05 0.05 0.05 0.25 0.25 \
+--no_md 20 20 20 20 20 20 20 20 \
+--step_size 0.05 \
 --array 0-99%1 \
---no_srun
+--replace_srun " " \
+--save_jobscript jobscript_21g.sh
 DELIM
 )
 
