@@ -140,6 +140,8 @@ echo "${0}" "${@}" >> "$prevcallfile"
 
 executable_path=$executable_dir/$executable
 if [ ! -f "$executable_path" ]; then echo "ERROR: Executable does not exist!"; exit 1; fi
+if [ "$ConfCheck_path" ] && [ ! -f "$ConfCheck_path" ]; then echo "ERROR: ConfCheck executable does not exist!"; exit 1; fi
+
 
 if [ "$rand_flag" -eq 1 ] && [ ! "$rand_file" ] ; then
     echo "ERROR: rand_flag=1 but no --rand_file was given!"
@@ -379,7 +381,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     fi
 
     # check whether gaugefile is a valid conf. if not, then check the second to gaugefile and use that one if it is valid.
-    if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] && [ -f "${ConfCheck_path}" ] ; then
+    if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] ; then
         ${ConfCheck_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
         if [ \$? -ne 0 ] ; then
             echo "ERROR: Gaugefile is broken: \${gauge_file}\${this_conf_nr}"
