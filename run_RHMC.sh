@@ -423,14 +423,21 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     eval "\${custom_cmds[i]}"
 
     this_Nodes=(\${Nodes[i]})
-    numberofgpus=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
+    numberofranks=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
+
+    if [ \${numberofranks} -gt ${gpuspernode} ] ; then
+        numberofgpus=${gpuspernode}
+    else
+        numberofgpus=\${numberofranks}
+    fi
+
     logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
 
     if [ "${replace_srun}" ] ; then
         run_command="${replace_srun} ${executable_path} \$paramfile"
     else
-        run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
+        run_command="srun --exclusive -n \${numberofranks} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
     fi
 
     echo -e "\$run_command \\n"
