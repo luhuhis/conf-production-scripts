@@ -140,6 +140,8 @@ echo "${0}" "${@}" >> "$prevcallfile"
 
 executable_path=$executable_dir/$executable
 if [ ! -f "$executable_path" ]; then echo "ERROR: Executable does not exist!"; exit 1; fi
+if [ "$ConfCheck_path" ] && [ ! -f "$ConfCheck_path" ]; then echo "ERROR: ConfCheck executable does not exist!"; exit 1; fi
+
 
 if [ "$rand_flag" -eq 1 ] && [ ! "$rand_file" ] ; then
     echo "ERROR: rand_flag=1 but no --rand_file was given!"
@@ -379,21 +381,8 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         echo "ERROR: gauge_file \${gauge_file}\${this_conf_nr} does not exist"
     fi
 
-    # determine rand_file
-    if [ "\${rand_file[i]}" == "auto" ] ; then
-        this_rand_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}_rand."
-        # echo "INFO: rand_file = \${this_rand_file}\$this_conf_nr"
-    else
-        this_rand_file="\${rand_file[i]}"
-    fi
-
-    # check if rand_file exists
-    if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
-        echo "ERROR: given rand_file does not exist or autodetect of conf_nr failed! (you specified --rand_flag=1)"
-    fi
-
-    # check whether last conf is valid. if not, then check the second to last conf and use that one if it is valid.
-    if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] && [ -f "${ConfCheck_path}" ] ; then
+    # check whether gaugefile is a valid conf. if not, then check the second to gaugefile and use that one if it is valid.
+    if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] ; then
         ${ConfCheck_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
         if [ \$? -ne 0 ] ; then
             echo "ERROR: Gaugefile is broken: \${gauge_file}\${this_conf_nr}"
@@ -407,9 +396,29 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         fi
     fi
 
+    # determine rand_file
+    if [ "\${rand_file[i]}" == "auto" ] ; then
+        this_rand_file="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}/\${conftype[i]}\${stream_id[i]}_rand."
+    else
+        this_rand_file="\${rand_file[i]}"
+    fi
+
+    this_seed="\${seed[i]}"
+    this_rand_flag="\${rand_flag[i]}"
+
+    # check if rand_file exists. if not, then just start from different seed.
+    if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
+        echo "WARN: rand_file does not exist (you specified --rand_flag=1)"
+        if [ "\${conf_nr[i]}" == "auto" ] ; then
+            this_seed="\$(date +%s%N)"
+            this_rand_flag="0"
+            echo "INFO: Generating new random number state from seed \${this_seed}"
+        fi
+    fi
+
     paramfile=\${paramdir}/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.param
 
-    $param_func "\${Lattice[i]}" "\${Nodes[i]}" "\${beta[i]}" "\${mass_s[i]}" "\${mass_ud[i]}" "\${rat_file[i]}" "\${seed[i]}" "\${this_rand_file}" "\${step_size[i]}" "\${no_md[i]}" "\${no_step_sf[i]}" "\${no_sw[i]}" "\${residue[i]}" "\${residue_force[i]}" "\${residue_meas[i]}" "\${cgMax[i]}" "\${always_acc[i]}" "\${rand_flag[i]}" "\${load_conf[i]}" "\${gauge_file}" "\${this_conf_nr}" "\${no_updates[i]}" "\${write_every[i]}" 
+    $param_func "\${Lattice[i]}" "\${Nodes[i]}" "\${beta[i]}" "\${mass_s[i]}" "\${mass_ud[i]}" "\${rat_file[i]}" "\${this_seed}" "\${this_rand_file}" "\${step_size[i]}" "\${no_md[i]}" "\${no_step_sf[i]}" "\${no_sw[i]}" "\${residue[i]}" "\${residue_force[i]}" "\${residue_meas[i]}" "\${cgMax[i]}" "\${always_acc[i]}" "\${this_rand_flag}" "\${load_conf[i]}" "\${gauge_file}" "\${this_conf_nr}" "\${no_updates[i]}" "\${write_every[i]}"
 
     echo "\$parameters" > "\$paramfile"
 
@@ -417,14 +426,21 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     eval "\${custom_cmds[i]}"
 
     this_Nodes=(\${Nodes[i]})
-    numberofgpus=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
+    numberofranks=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
+
+    if [ \${numberofranks} -gt ${gpuspernode} ] ; then
+        numberofgpus=${gpuspernode}
+    else
+        numberofgpus=\${numberofranks}
+    fi
+
     logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
 
     if [ "${replace_srun}" ] ; then
         run_command="${replace_srun} ${executable_path} \$paramfile"
     else
-        run_command="srun --exclusive -n \${numberofgpus} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
+        run_command="srun --exclusive -n \${numberofranks} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
     fi
 
     echo -e "\$run_command \\n"
