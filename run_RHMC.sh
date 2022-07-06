@@ -410,7 +410,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
         echo "WARN: rand_file does not exist (you specified --rand_flag=1)"
         if [ "\${conf_nr[i]}" == "auto" ] ; then
-            this_seed="\$(date +%s%N)"
+            this_seed="\$(date +%N)"
             this_rand_flag="0"
             echo "INFO: Generating new random number state from seed \${this_seed}"
         fi
