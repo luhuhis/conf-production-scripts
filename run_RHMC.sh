@@ -265,6 +265,7 @@ write_every = \${23}"
 set_parameters_patrick () {
 lx=\${1%% *}
 lt=\${1##* }
+b=(\$2)
 parameters="write_stdout_to_file = 0
 stdout_file = /path/stdout
 beta = \$3
@@ -295,14 +296,14 @@ read_random_state = \${18}
 no_sources_pbp_ud = 4
 cg_break_residual_pbp_ud = \${15}
 max_rat_degree = 14
-bx = 8
-by = 8
-bz = 1
-bt = 4
+bx = \${b[0]}
+by = \${b[1]}
+bz = \${b[2]}
+bt = \${b[3]}
 #
 sfx = 1
 sfy = 1
-sfz = 16
+sfz = 8  # 8 for single, 4 for double.
 sft = 1
 \$(cat patrick.cfg)
 \$(cat \$6)

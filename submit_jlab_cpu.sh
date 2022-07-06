@@ -14,7 +14,7 @@ script_call=$(cat <<DELIM
 --conftype l6420f21b7570m003946m01973 \
 --stream_id _3 \
 --Lattice "64 64 64 20" \
---Nodes "1 1 1 1" \
+--Nodes "16 16 1 1" \
 --beta 7.570 --mass_s 0.01973 --mass_ud 0.003946 \
 --rat_file ${rat_path}/rat.out_ml003946ms019730Nfl2Nfs1Npf1 \
 --seed 382011 --rand_file auto \
