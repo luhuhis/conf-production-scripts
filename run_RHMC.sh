@@ -67,8 +67,10 @@ param_arrays = parser.add_argument_group('Parameters with either a single OR n_s
 
 # GENERAL PARAMETERS
 parser.add_argument('--code', default="SIMULATeQCD", choices=["SIMULATeQCD", "patrick"], help="patrick: change parameter file to use patricks cpu code and do not use GPUs in slurm")
-parser.add_argument('--ConfCheck_path', type=str, help="if provided and conf_nr=auto, then first ConfCheck is used to check whether the last conf is ok. \
-                                              if it is not ok, then it will try the second to last conf.")
+parser.add_argument('--CheckConf_path', type=str, help="if provided and conf_nr=auto, then first CheckConf is used to check whether the last conf is ok. \
+                                              if it is not ok, then it will try the second to last one.")
+parser.add_argument('--CheckRand_path', type=str, help="if provided and conf_nr=auto, then first CheckRand is used to check whether the last randfile is ok. \
+                                              if it is not ok, then it will try the second to last one.")
 parser.add_argument('--module_load', nargs='*', help="modules will be loaded at the start of the sbatch script. example: --module_load gcc8 cmake3 cuda11")
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
@@ -140,8 +142,8 @@ echo "${0}" "${@}" >> "$prevcallfile"
 
 executable_path=$executable_dir/$executable
 if [ ! -f "$executable_path" ]; then echo "ERROR: Executable does not exist!"; exit 1; fi
-if [ "$ConfCheck_path" ] && [ ! -f "$ConfCheck_path" ]; then echo "ERROR: ConfCheck executable does not exist!"; exit 1; fi
-
+if [ "$CheckConf_path" ] && [ ! -f "$CheckConf_path" ]; then echo "ERROR: CheckConf executable does not exist!"; exit 1; fi
+if [ "$CheckRand_path" ] && [ ! -f "$CheckRand_path" ]; then echo "ERROR: CheckRand executable does not exist!"; exit 1; fi
 
 if [ "$rand_flag" -eq 1 ] && [ ! "$rand_file" ] ; then
     echo "ERROR: rand_flag=1 but no --rand_file was given!"
@@ -382,12 +384,12 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     fi
 
     # check whether gaugefile is a valid conf. if not, then check the second to gaugefile and use that one if it is valid.
-    if [ "\${conf_nr[i]}" == "auto" ] && [ "${ConfCheck_path}" ] ; then
-        ${ConfCheck_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
+    if [ "\${conf_nr[i]}" == "auto" ] && [ "${CheckConf_path}" ] ; then
+        ${CheckConf_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
         if [ \$? -ne 0 ] ; then
             echo "ERROR: Gaugefile is broken: \${gauge_file}\${this_conf_nr}"
             echo "INFO: Trying second to last one using conf_nr=\${this_conf_nr_second}"
-            ${ConfCheck_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr_second}"
+            ${CheckConf_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr_second}"
             if [ \$? -ne 0 ] ; then
                 "ERROR: Second to last gaugefile is also broken: \${gauge_file}\${this_conf_nr_second}"
             else
@@ -413,6 +415,17 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
             this_seed="\$(date +%N)"
             this_rand_flag="0"
             echo "INFO: Generating new random number state from seed \${this_seed}"
+        fi
+    elif [ -f "\${this_rand_file}\${this_conf_nr}" ] ; then
+        # check whether Randfile is a valid. if not, start from differen seed
+        if [ "${CheckRand_path}" ] ; then
+            ${CheckRand_path} EMPTY_FILE Lattice="\${Lattice[i]}" Randfile="\${this_rand_file}\${this_conf_nr}"
+            if [ \$? -ne 0 ] ; then
+                echo "ERROR: Randfile is broken: \${this_rand_file}\${this_conf_nr}"
+                this_seed="\$(date +%N)"
+                this_rand_flag="0"
+                echo "INFO: Generating new random number state from seed \${this_seed}"
+            fi
         fi
     fi
 
