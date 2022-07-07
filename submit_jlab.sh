@@ -52,7 +52,8 @@ done
 
 script_call=$(cat <<DELIM
 ./run_RHMC.sh \
---ConfCheck_path ~/code_build/SIMULATeQCD/build/applications/ConfCheck \
+--CheckConf_path ~/code_build/SIMULATeQCD/build_new/applications/CheckConf \
+--CheckRand_path ~/code_build/SIMULATeQCD/build_new/applications/CheckRand \
 --module_load mpi/openmpi-x86_64 \
 --output_base_path /volatile/thermo/laltenko/conf \
 --executable_dir /home/laltenko/code_build/SIMULATeQCD/build/applications \
