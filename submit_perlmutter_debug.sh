@@ -39,8 +39,8 @@ for idx in "${!Nts[@]}"; do
 --conf_nr auto \
 --seed ${this_seeds[idy]} \
 --jobname RHMC_96${Nts[idx]}${this_streams[idy]} --mail_user laltenkor@bnl.gov \
---time 12:00:00 --nodes ${nodes[idx]} --gpuspernode 4 --array "0-100%1" \
---account m3760_g --qos regular --sbatch_custom "constraint gpu" \
+--time 02:00:00 --nodes ${nodes[idx]} --gpuspernode 4 --array "0-0%1" \
+--account m3760_g --qos debug --sbatch_custom "constraint gpu" \
 --custom_cmds "export MPICH_GPU_SUPPORT_ENABLED=1;" \
 --no_updates ${no_updates[idx]} \
 --save_jobscript jobscript_${Nts[idx]}_${this_streams[idy]}.sh
