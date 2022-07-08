@@ -229,10 +229,11 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
 
+    bare_command="${executable_path} \$paramfile &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out"
     if [ "${replace_srun}" ] ; then
-        run_command="${replace_srun} ${executable_path} \$paramfile"
+        run_command="${replace_srun} \${bare_command}"
     else
-        run_command="srun --exclusive -n \${numberofranks} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
+        run_command="srun --exclusive -n \${numberofranks} --gres=gpu:\${numberofgpus} -u \${bare_command}"
     fi
 
     if [ "\$skip" ] ; then
@@ -241,7 +242,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     else
         echo -e "\$run_command \\n"
         # this is where the program is actually executed:
-        ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out ) &
+        ( \$run_command ) &
         arr_pids+=(\$!)
     fi
 done
