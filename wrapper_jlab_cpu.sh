@@ -5,7 +5,7 @@ rat_path="/volatile/thermo/laltenko/conf/rat_approx/"
 rat_files=("rat.out_ml003946ms019730Nfl2Nfs1Npf1" "rat.out_ml003446ms017230Nfl2Nfs1Npf1" "rat.out_ml002408ms012040Nfl2Nfs1Npf1" "rat.out_ml002230ms011150Nfl2Nfs1Npf1")
 
 script_call=$(cat <<DELIM
-./run_RHMC.sh \
+./create_RHMC_job.sh \
 --code patrick \
 --output_base_path /volatile/thermo/laltenko/conf \
 --executable_dir /home/laltenko/code_build/patrick/build \

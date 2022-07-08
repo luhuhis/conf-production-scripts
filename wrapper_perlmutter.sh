@@ -20,7 +20,7 @@ for idx in "${!Nts[@]}"; do
     this_seeds="${seeds[idx]}"
     declare -n this_streams this_seeds  # convert these variables to a reference of the variables their value names
     for idy in "${!this_streams[@]}" ; do
-./run_RHMC.sh \
+./create_RHMC_job.sh \
 --CheckConf_path ~/code/SIMULATeQCD/build_gnu/applications/CheckConf \
 --CheckRand_path ~/code/SIMULATeQCD/build_gnu/applications/CheckRand \
 --module_load cudatoolkit/11.5 craype-accel-nvidia80 PrgEnv-gnu gcc/10.3.0 \

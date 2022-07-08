@@ -51,7 +51,7 @@ for idx in "${!Nts[@]}"; do
 done
 
 script_call=$(cat <<DELIM
-./run_RHMC.sh \
+./create_RHMC_job.sh \
 --CheckConf_path ~/code_build/SIMULATeQCD/build_new/applications/CheckConf \
 --CheckRand_path ~/code_build/SIMULATeQCD/build_new/applications/CheckRand \
 --module_load mpi/openmpi-x86_64 \
