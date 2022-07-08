@@ -1,1 +1,3 @@
-prev_calls_run_GenerateQuenched.sh.log
+prev_calls_*
+jobscript*
+
