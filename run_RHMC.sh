@@ -383,6 +383,8 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         echo "ERROR: gauge_file \${gauge_file}\${this_conf_nr} does not exist"
     fi
 
+    skip=""
+
     # check whether gaugefile is a valid conf. if not, then check the second to gaugefile and use that one if it is valid.
     if [ "\${conf_nr[i]}" == "auto" ] && [ "${CheckConf_path}" ] ; then
         ${CheckConf_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
@@ -392,6 +394,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
             ${CheckConf_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr_second}"
             if [ \$? -ne 0 ] ; then
                 "ERROR: Second to last gaugefile is also broken: \${gauge_file}\${this_conf_nr_second}"
+                skip=true
             else
                 this_conf_nr=\${this_conf_nr_second}
             fi
@@ -456,11 +459,15 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         run_command="srun --exclusive -n \${numberofranks} --gres=gpu:\${numberofgpus} -u ${executable_path} \$paramfile"
     fi
 
-    echo -e "\$run_command \\n"
-    ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out ) &
-
-    arr_pids+=(\$!)
-
+    if [ "\$skip" ] ; then
+        echo "INFO: Skipping this job step because no valid gaugefile could be found!"
+        arr_pids+=(dummy_pid)
+    else
+        echo -e "\$run_command \\n"
+        # this is where the program is actually executed:
+        ( \$run_command &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out ) &
+        arr_pids+=(\$!)
+    fi
 done
 
 # get and check the exit codes of all parallel job steps
