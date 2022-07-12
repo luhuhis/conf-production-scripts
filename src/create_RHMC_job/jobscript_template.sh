@@ -229,7 +229,8 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     logdir=${output_base_path}/\${conftype[i]}/logs
     mkdir -p \$logdir
 
-    bare_command="${executable_path} \$paramfile &> \$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out"
+    bare_command="${executable_path} \$paramfile"
+    logfile="\$logdir/\${conftype[i]}\${stream_id[i]}.\${this_conf_nr}.out"
     if [ "${replace_srun}" ] ; then
         run_command="${replace_srun} \${bare_command}"
     else
@@ -240,9 +241,9 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         echo "INFO: Skipping this job step because no valid gaugefile could be found!"
         arr_pids+=(dummy_pid)
     else
-        echo -e "\$run_command \\n"
+        echo -e "\$run_command &> \$logfile \\n"
         # this is where the program is actually executed:
-        ( \$run_command ) &
+        ( \$run_command &> \$logfile ) &
         arr_pids+=(\$!)
     fi
 done
