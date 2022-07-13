@@ -85,7 +85,7 @@ sfx = 1
 sfy = 1
 sfz = 8  # 8 for single, 4 for double.
 sft = 1
-\$(cat patrick.cfg)
+\$(cat ./src/create_RHMC_job/patrick.cfg)
 \$(cat \$6)
 
 "
