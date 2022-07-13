@@ -1,5 +1,10 @@
 #!/bin/bash
+
 # requires bash 4.4 or greater
+if (( BASH_VERSINFO[0]*100 + BASH_VERSINFO[1] < 404 )); then
+    echo "ERROR: Need bash version 4.4 or greater."
+    exit 1
+fi
 
 # parse arguments from command line
 source src/create_RHMC_job/parse_args.sh
