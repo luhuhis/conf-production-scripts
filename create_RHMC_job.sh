@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# requires bash 4.4 or greater
+# requires bash 4.4 or greater for operator parameter expansion
 if (( BASH_VERSINFO[0]*100 + BASH_VERSINFO[1] < 404 )); then
     echo "ERROR: Need bash version 4.4 or greater."
     exit 1
