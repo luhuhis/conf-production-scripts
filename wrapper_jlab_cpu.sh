@@ -19,18 +19,19 @@ script_call=$(cat <<DELIM
 --rat_file ${rat_path}/rat.out_ml003946ms019730Nfl2Nfs1Npf1 \
 --seed 382011 --rand_file auto \
 --jobname RHMC_cpu_64Nt --mail_user laltenkor@bnl.gov \
---time 48:00:00 --nodes 1 --gpuspernode 8 \
---account thermop --partition phi_test --qos normal \
---sbatch_custom "constraint cache,quad,16p" \
+--time 48:00:00 --nodes 1 --gpuspernode 0 \
+--account thermop --partition phi --qos regular \
+--sbatch_custom "constraint cache,quad,16p --mem=0" \
 --conf_nr auto \
---custom_cmds "source /dist/intel/parallel_studio_2019/parallel_studio_xe_2019.0.045/bin/psxevars.sh intel64; export LD_LIBRARY_PATH=/dist/gcc/8.4.0/lib:/dist/gcc/8.4.0/lib64:\$LD_LIBRARY_PATH ;" \
+--custom_cmds "source /dist/intel/parallel_studio_xe_2020_update1/parallel_studio_xe_2020.4.912/bin/psxevars.sh intel64; export LD_LIBRARY_PATH=/dist/gcc/9.3.0/lib:/dist/gcc/9.3.0/lib64:\$LD_LIBRARY_PATH ; I_MPI_PROCESS_MANAGER=mpd ; export I_MPI_FABRICS=shm ; " \
 --no_updates 1000 \
 --rand_flag 0 \
 --always_acc 0 \
 --write_every 1 --load_conf 2 \
 --no_md 20 \
 --step_size 0.05 \
---replace_srun "srun --ntasks-per-node=1 -c 256 "
+--replace_srun "mpirun -genvall -n 1 " \
+--save_jobscript jobscript.sh
 DELIM
 )
 
