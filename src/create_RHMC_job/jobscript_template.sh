@@ -86,6 +86,14 @@ sfx = 1
 sfy = 1
 sfz = 8  # 8 for single, 4 for double.
 sft = 1
+#
+r_inv_1f_degree = 14
+r_inv_2f_degree = 14
+r_1f_degree = 14
+r_2f_degree = 14
+r_bar_1f_degree = 12
+r_bar_2f_degree = 12
+#
 \$(cat \$6)
 
 "
