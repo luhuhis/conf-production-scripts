@@ -72,6 +72,7 @@ cg_max_iterations_rhmc = \${16}
 always_accept = \${17}
 no_updates = \${22}
 write_conf_every_nth = \${23}
+rnd_file = \$8
 read_random_state = \${18}
 no_sources_pbp_ud = 4
 cg_break_residual_pbp_ud = \${15}
@@ -85,7 +86,6 @@ sfx = 1
 sfy = 1
 sfz = 8  # 8 for single, 4 for double.
 sft = 1
-\$(cat ./src/create_RHMC_job/patrick.cfg)
 \$(cat \$6)
 
 "
