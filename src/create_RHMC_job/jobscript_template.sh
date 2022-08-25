@@ -197,7 +197,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
     # check if rand_file exists. if not, then just start from different seed.
     if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
-        echo "WARN: rand_file does not exist (you specified --rand_flag=1)"
+        echo "WARN: rand_file does not exist (although you specified --rand_flag=1)"
         if [ "\${conf_nr[i]}" == "auto" ] ; then
             this_seed="\$(date +%N)"
             this_rand_flag="0"

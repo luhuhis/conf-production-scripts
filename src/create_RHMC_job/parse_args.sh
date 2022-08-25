@@ -106,7 +106,7 @@ param_arrays.add_argument('--residue_meas', nargs='*', type=float, default=1e-12
 
 param_arrays.add_argument('--cgMax', nargs='*', type=int, default=30000, help="max cg steps for multi mass solver")
 param_arrays.add_argument('--always_acc', nargs='*', type=int, default=0, help="1 = always accept configuration in Metropolis. default=0.")
-parser.add_argument('--seed', nargs='*', type=int, required=True)
+parser.add_argument('--seed', nargs='*', type=int)
 
 
 # SLURM PARAMETERS
