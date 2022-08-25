@@ -53,7 +53,6 @@ for param in "${parameters[@]}" ; do
     unset -n param
 done
 
-parameters+=("seed")  # seeds should always be different
 
 # check if all parameters now have the correct number of entries  (=n_sim_steps)
 for param in "${parameters[@]}" ; do
@@ -65,6 +64,10 @@ for param in "${parameters[@]}" ; do
     fi
     unset -n param
 done
+
+if [ ${#seed[@]} -ne "$n_sim_steps" ] ; then
+    echo "WARN: --seed does not have $n_sim_steps (=n_sim_steps) arguments!"
+fi
 
 
 # parse slurm options
