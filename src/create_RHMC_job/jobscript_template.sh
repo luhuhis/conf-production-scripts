@@ -192,16 +192,21 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
         this_rand_file="\${rand_file[i]}"
     fi
 
-    this_seed="\${seed[i]}"
+    # determine seed
+    if [ "\${seed[i]}" == "random" ] ; then
+        this_seed="\$(date +%N)"
+    else
+        this_seed="\${seed[i]}"
+    fi
+
     this_rand_flag="\${rand_flag[i]}"
 
-    # check if rand_file exists. if not, then just start from different seed.
+    # check if rand_file exists. if not, then just start from different seed, if rand_file==auto.
     if [ ! -f "\${this_rand_file}\${this_conf_nr}" ] && [ "${rand_flag}" -eq 1 ] ; then
         echo "WARN: rand_file does not exist (although you specified --rand_flag=1)"
-        if [ "\${conf_nr[i]}" == "auto" ] ; then
-            this_seed="\$(date +%N)"
+        if [ "\${rand_file[i]}" == "auto" ] ; then
             this_rand_flag="0"
-            echo "INFO: Generating new random number state from seed \${this_seed}"
+            echo "WARN: but, since rand_file=auto, I will set rand_flag=0 and thus generate a new random number state from this seed: \${this_seed}"
         fi
     elif [ -f "\${this_rand_file}\${this_conf_nr}" ] ; then
         # check whether Randfile is a valid. if not, start from differen seed
