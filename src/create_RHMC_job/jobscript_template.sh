@@ -57,7 +57,7 @@ lat_precision_flag = 0
 lat_read_flag = \${19}
 lat_file      = \${20}
 lat_number    = \${21}
-seed = \$7
+seed = \$7  # ignored unless read_random_state=0
 mass_ud = \$5
 mass_s  = \$4
 step_size = \$9
