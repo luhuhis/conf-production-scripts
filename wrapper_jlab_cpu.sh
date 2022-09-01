@@ -43,7 +43,7 @@ for idx in ${!Nts[@]} ; do
 --output_base_path /volatile/thermo/laltenko/conf \
 --executable_dir /home/laltenko/code_build/patrick/build \
 --executable main_rhmc \
---CheckConf_path "srun --ntasks-per-node=1 -N 1 ~/code_build/SIMULATeQCD/build_cpu/applications/CheckConf" \
+--CheckConf_path "srun -u --ntasks-per-node=1 -N 1 ~/code_build/SIMULATeQCD/build_cpu/applications/CheckConf" \
 --n_sim_steps 1 \
 --conftype $conftype \
 --stream_id $stream_id \
@@ -61,9 +61,8 @@ for idx in ${!Nts[@]} ; do
 --rand_flag 1 --seed random --rand_file auto \
 --always_acc 0 \
 --write_every 1 --load_conf 2 \
---no_md 10 \
---step_size 0.1 \
---replace_srun "srun --ntasks-per-node=1 -N 1 " \
+--step_size 0.1 --no_md 10 --no_step_sf 10 --no_sw 10 \
+--replace_srun "srun -u --ntasks-per-node=1 -N 1 " \
 --save_jobscript jobscript.sh
 DELIM
 			)
