@@ -141,6 +141,10 @@ arr_pids=()
 
 for ((i = 0 ; i < $n_sim_steps ; i++)); do
 
+    # execute custom commands (e.g. to modify the environment)
+    echo "\${custom_cmds[i]}"
+    eval "\${custom_cmds[i]}"
+
     #create some paths and directories
     gaugedir="${output_base_path}/\${conftype[i]}/\${conftype[i]}\${stream_id[i]}"
     paramdir="${output_base_path}/\${conftype[i]}/param"
@@ -226,9 +230,6 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     $param_func "\${Lattice[i]}" "\${Nodes[i]}" "\${beta[i]}" "\${mass_s[i]}" "\${mass_ud[i]}" "\${rat_file[i]}" "\${this_seed}" "\${this_rand_file}" "\${step_size[i]}" "\${no_md[i]}" "\${no_step_sf[i]}" "\${no_sw[i]}" "\${residue[i]}" "\${residue_force[i]}" "\${residue_meas[i]}" "\${cgMax[i]}" "\${always_acc[i]}" "\${this_rand_flag}" "\${load_conf[i]}" "\${gauge_file}" "\${this_conf_nr}" "\${no_updates[i]}" "\${write_every[i]}"
 
     echo "\$parameters" > "\$paramfile"
-
-    echo "\${custom_cmds[i]}"
-    eval "\${custom_cmds[i]}"
 
     this_Nodes=(\${Nodes[i]})
     numberofranks=\$((this_Nodes[0] * this_Nodes[1] * this_Nodes[2] * this_Nodes[3]))
