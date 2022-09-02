@@ -36,8 +36,8 @@ for idx in ${!Nts[@]} ; do
 		conftype="l$Ns${nt}f21b${betas[idx]}m00${masses_ud[idx]}m0${masses_s[idx]}"
 
 		for stream_id in "${stream_ids[@]}" ; do
-
-			script_call=$(cat <<DELIM
+			if [ ! "$(squeue -u $USER | grep $conftype)" ] ; then
+				script_call=$(cat <<DELIM
 ./create_RHMC_job.sh \
 --code patrick \
 --output_base_path /volatile/thermo/laltenko/conf \
@@ -63,18 +63,20 @@ for idx in ${!Nts[@]} ; do
 --write_every 1 --load_conf 2 \
 --step_size 0.1 --no_md 10 --no_step_sf 10 --no_sw 10 \
 --replace_srun "srun -u --ntasks-per-node=1 -N 1 " \
+--array 0-99%1 \
 --save_jobscript jobscript.sh
 DELIM
-			)
+				)
 
-			echo "$script_call"
+				echo "$script_call"
 
-			echo -n "Continue y/n? "
-			read -r input
-			if [ "$input" == "y" ]; then
-				eval $script_call
-			else
-				echo "Did not submit job"
+				echo -n "Continue y/n? "
+				read -r input
+				if [ "$input" == "y" ]; then
+					eval $script_call
+				else
+					echo "Did not submit job"
+				fi
 			fi
 		done
 	done

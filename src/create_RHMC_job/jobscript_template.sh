@@ -1,8 +1,8 @@
 sbatchscript=$(cat <<EOF
 #!/bin/bash
 #SBATCH --job-name=${jobname}
-#SBATCH --output=$logdir/${jobname}_%j.out
-#SBATCH --error=$logdir/${jobname}_%j.err
+#SBATCH --output=$logdir/${jobname}_%A_%a.out
+#SBATCH --error=$logdir/${jobname}_%A_%a.err
 #SBATCH --mail-type=$mail_type
 #SBATCH --mail-user=$mail_user
 $SBATCH_PARTITION
