@@ -36,7 +36,7 @@ for idx in ${!Nts[@]} ; do
 		conftype="l$Ns${nt}f21b${betas[idx]}m00${masses_ud[idx]}m0${masses_s[idx]}"
 
 		for stream_id in "${stream_ids[@]}" ; do
-			if [ ! "$(squeue -u $USER | grep $conftype)" ] ; then
+			if [ ! "$(squeue -u $USER | grep ${conftype}$stream_id)" ] ; then
 				script_call=$(cat <<DELIM
 ./create_RHMC_job.sh \
 --code patrick \
