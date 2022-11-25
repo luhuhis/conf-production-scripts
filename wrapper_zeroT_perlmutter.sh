@@ -70,6 +70,6 @@ stream="_1"
 --account m3760_g --qos regular --sbatch_custom "constraint gpu" \
 --custom_cmds "export MPICH_GPU_SUPPORT_ENABLED=1;" \
 --no_updates 1000 \
---save_jobscript jobscript_${Ns}${Nt}_${beta_str}${stream}.sh
+--save_jobscript ./generated_jobscripts/jobscript_${Ns}${Nt}_${beta_str}${stream}.sh
 
 done
