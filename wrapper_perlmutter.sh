@@ -2,16 +2,18 @@
 
 # File to run RHMC on perlmutter
 
-Nts=(36 56)
-nodes=(3 6)
-Nodes=("1 3 4 1" "1 4 6 1")
-no_updates=(100 100)
-streams=("streams36" "streams56")
-seeds=("seeds36" "seeds56")
+Nts=(28 36 56)
+nodes=(3 3 6)
+Nodes=("1 3 4 1" "1 3 4 1" "1 4 6 1")
+no_updates=(100 100 100)
+streams=("streams28" "streams36" "streams56")
+seeds=("seeds28" "seeds36" "seeds56")
 
 streams36=("a" "b" "c" "d")
 streams56=("b" "c")
+streams28=("a" "b" "c" "d")
 seeds36=(15619 98789 87918 27180 )
+seeds28=(54420 55367 56332 87462 )
 seeds56=(51070 58544)
 
 
