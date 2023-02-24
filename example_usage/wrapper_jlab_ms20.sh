@@ -15,7 +15,7 @@ Nt7373=(24 22 20 18 16)
 Nt7280=(22 20 18 16)
 Nts=("Nt7825" "Nt7596" "Nt7373" "Nt7280")
 
-stream_ids=(_1 _2 _3)	
+stream_ids=(_1 _2 _3)
 
 echo -e "starting with phi KNL jobs\n"
 
@@ -42,6 +42,7 @@ for idx in ${!Nts[@]} ; do
 ../create_RHMC_job.sh \
 --code patrick \
 --output_base_path /volatile/thermo/laltenko/conf \
+--subfolder_for_logfiles logs/cpu \
 --executable_dir /home/laltenko/code_build/patrick/build \
 --executable main_rhmc \
 --CheckConf_path "srun -u --ntasks-per-node=1 -N 1 ~/code_build/SIMULATeQCD/build_cpu/applications/CheckConf" \
@@ -158,6 +159,7 @@ for ((j = 0 ; j < n_jobs  ; j++)); do
 --CheckRand_path ~/code_build/SIMULATeQCD/build_new/applications/CheckRand \
 --module_load mpi/openmpi-x86_64 \
 --output_base_path /volatile/thermo/laltenko/conf \
+--subfolder_for_logfiles logs/gpu \
 --executable_dir /home/laltenko/code_build/SIMULATeQCD/build/applications \
 --n_sim_steps $N \
 --conftype ${arr_conftype[@]:i:N} \

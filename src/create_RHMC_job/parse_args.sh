@@ -70,6 +70,7 @@ parser.add_argument('--CheckRand_path', type=str, help="if provided and conf_nr=
                                               if it is not ok, then it will try the second to last one.")
 parser.add_argument('--module_load', nargs='*', help="modules will be loaded at the start of the sbatch script. example: --module_load gcc8 cmake3 cuda11")
 parser.add_argument('--output_base_path', required=True, help="folder that will contain the output")
+parser.add_argument('--subfolder_for_logfiles', default="logs", type=str, help="subfolder inside of output_base_path that will contain the high-level log files which report on whether job steps start/complete successfully.")
 parser.add_argument('--executable_dir', required=True, help="folder that contains the gradientFlow executable")
 parser.add_argument('--executable', help="filename of the gradientFlow exectuable inside the folder", default="RHMC")
 parser.add_argument('--save_jobscript', type=str, help="save the job script to this file")

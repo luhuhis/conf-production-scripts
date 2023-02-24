@@ -7,7 +7,7 @@ if (( BASH_VERSINFO[0]*100 + BASH_VERSINFO[1] < 404 )); then
 fi
 
 # make sure we are in the directory of this file.
-cd $(dirname $0)
+cd "$(dirname $0)" || exit
 
 # parse arguments from command line
 source src/create_RHMC_job/parse_args.sh
@@ -98,7 +98,7 @@ if [ "$code" == "patrick" ] ; then
 fi
 
 
-logdir=${output_base_path}/logs
+logdir=${output_base_path}/${subfolder_for_logfiles}
 mkdir -p "$logdir"
 
 # create jobscript from template and fill it with given parameters.
