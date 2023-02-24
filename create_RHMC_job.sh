@@ -6,6 +6,9 @@ if (( BASH_VERSINFO[0]*100 + BASH_VERSINFO[1] < 404 )); then
     exit 1
 fi
 
+# make sure we are in the directory of this file.
+cd $(dirname $0)
+
 # parse arguments from command line
 source src/create_RHMC_job/parse_args.sh
 # now, lots of environment variables are set which we can use to populate the jobscript template.
@@ -19,7 +22,7 @@ echo "${0}" "${@}" >> "$prevcallfile"
 # check if parameters make sense
 executable_path=$executable_dir/$executable
 if [ ! -f "$executable_path" ]; then echo "ERROR: Executable $executable_path does not exist!"; exit 1; fi
-if [ "$CheckConf_path" ] && [ ! -f "$CheckConf_path" ]; then echo "ERROR: CheckConf executable does not exist!"; exit 1; fi
+#if [ "$CheckConf_path" ] && [ ! -f "$CheckConf_path" ]; then echo "ERROR: CheckConf executable does not exist!"; exit 1; fi
 if [ "$CheckRand_path" ] && [ ! -f "$CheckRand_path" ]; then echo "ERROR: CheckRand executable does not exist!"; exit 1; fi
 
 if [ "$rand_flag" -eq 1 ] && [ ! "$rand_file" ] ; then

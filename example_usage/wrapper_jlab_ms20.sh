@@ -39,7 +39,7 @@ for idx in ${!Nts[@]} ; do
 		for stream_id in "${stream_ids[@]}" ; do
 			if [ ! "$(squeue -u $USER | grep ${conftype}$stream_id)" ] ; then
 				script_call=$(cat <<DELIM
-./create_RHMC_job.sh \
+../create_RHMC_job.sh \
 --code patrick \
 --output_base_path /volatile/thermo/laltenko/conf \
 --executable_dir /home/laltenko/code_build/patrick/build \
@@ -153,7 +153,7 @@ for ((j = 0 ; j < n_jobs  ; j++)); do
 	fi
 	if [ ! "$(squeue -u $USER | grep ${joblabel}_$j)" ] ; then
 		script_call=$(cat <<DELIM
-./create_RHMC_job.sh \
+../create_RHMC_job.sh \
 --CheckConf_path ~/code_build/SIMULATeQCD/build_new/applications/CheckConf \
 --CheckRand_path ~/code_build/SIMULATeQCD/build_new/applications/CheckRand \
 --module_load mpi/openmpi-x86_64 \
