@@ -174,7 +174,7 @@ for ((i = 0 ; i < $n_sim_steps ; i++)); do
     skip=""
 
     # check whether gaugefile is a valid conf. if not, then check the second to gaugefile and use that one if it is valid.
-    if [ "\${conf_nr[i]}" == "auto" ] && [ "${CheckConf_path}" ] ; then
+    if [ \${load_conf[i]} -eq 2 ] && [ "\${conf_nr[i]}" == "auto" ] && [ "${CheckConf_path}" ] ; then
         ${CheckConf_path} EMPTY_FILE format=nersc Lattice="\${Lattice[i]}" Gaugefile="\${gauge_file}\${this_conf_nr}"
         if [ \$? -ne 0 ] ; then
             echo "ERROR: Gaugefile is broken: \${gauge_file}\${this_conf_nr}"
