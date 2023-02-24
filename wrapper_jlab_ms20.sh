@@ -17,11 +17,12 @@ Nts=("Nt7825" "Nt7596" "Nt7373" "Nt7280")
 
 stream_ids=(_1 _2 _3)	
 
+echo -e "starting with phi KNL jobs\n"
 
 for idx in ${!Nts[@]} ; do
 	beta="$(echo "scale=3; ${betas[idx]}/1000" | bc -l)"
-	mass_s="0$(echo "scale=5; ${masses_s[idx]}/100000" | bc -l)"
-	mass_ud="0$(echo "scale=6; ${masses_ud[idx]}/1000000" | bc -l)"
+	mass_s="0$(echo "scale=5; ${masses_s[idx]}/10000" | bc -l)"
+	mass_ud="0$(echo "scale=6; ${masses_ud[idx]}/100000" | bc -l)"
 	rat_file="${rat_path}${rat_files[idx]}"
 
 	beta_str=${betas[idx]}
@@ -104,8 +105,8 @@ counter=0
 # loop over all parameter sets and fill arrays with them
 for idx in ${!Nts[@]} ; do
 	beta="$(echo "scale=3; ${betas[idx]}/1000" | bc -l)"
-	mass_s="0$(echo "scale=5; ${masses_s[idx]}/100000" | bc -l)"
-	mass_ud="0$(echo "scale=6; ${masses_ud[idx]}/1000000" | bc -l)"
+	mass_s="0$(echo "scale=5; ${masses_s[idx]}/10000" | bc -l)"
+	mass_ud="0$(echo "scale=6; ${masses_ud[idx]}/100000" | bc -l)"
 	rat_file="${rat_path}${rat_files[idx]}"
 
 	beta_str=${betas[idx]}
