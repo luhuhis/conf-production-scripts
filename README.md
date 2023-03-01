@@ -19,3 +19,18 @@ Some notable features include:
 - Any slurm parameters can be passed using the custom slurm parameter --sbatch_custom, the srun command can be replaced by something else using --srun_custom
 - Arguments are parsed via python's argparse 
 
+
+Below is an example log file for a job on perlmutter containing only one job step. First we print some general info, then we set some custom environment variables for this specific machine, then we check whether the configuration and randfile are corrupted or not. Then the RHMC is launched using srun and the actual run output is routed to another file.
+
+```
+Start 2023-02-01 22:29:14
+
+5191218 RHMC_8.068_6472_1 | nid003208 | /global/homes/l/laltenko/scripts/run_GenerateQuenched
+
+export MPICH_GPU_SUPPORT_ENABLED=1;
+# [2023-02-01 22:29:14] INFO: Checking Gaugefile /pscratch/sd/l/laltenko/conf/l6472f21b8068m002408m01204/l6472f21b8068m002408m01204_1/l6472f21b8068m002408m01204_1.700
+# [2023-02-01 22:30:06] RESULT: Gaugefile OK! (readin, plaquette, unitarity)
+# [2023-02-01 22:30:06] INFO: Checking Randfile /pscratch/sd/l/laltenko/conf/l6472f21b8068m002408m01204/l6472f21b8068m002408m01204_1/l6472f21b8068m002408m01204_1_rand.700
+# [2023-02-01 22:30:07] RESULT: Randfile OK!
+srun --exclusive -n 8 --gres=gpu:4 -u /global/homes/l/laltenko/code/SIMULATeQCD/build_gnu/applications/RHMC /pscratch/sd/l/laltenko/conf/l6472f21b8068m002408m01204/param/l6472f21b8068m002408m01204_1.700.param &> /pscratch/sd/l/laltenko/conf/l6472f21b8068m002408m01204/logs/l6472f21b8068m002408m01204_1.700.out
+```
