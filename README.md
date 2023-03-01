@@ -20,7 +20,7 @@ Some notable features include:
 - Arguments are parsed via python's argparse 
 
 
-Below is an example log file for a job on perlmutter containing only one job step. First we print some general info, then we set some custom environment variables for this specific machine, then we check whether the configuration and randfile are corrupted or not. Then the RHMC is launched using srun and the actual run output is routed to another file.
+Below is an example log file that records what a job for perlmutter generated with ```create_RHMC_job.sh``` is doing. The job contains only one job step. First we print some general info, then we set some custom environment variables for this specific machine, then we check whether the configuration and randfile are corrupted or not. Then the RHMC is launched using srun and the actual run output is routed to another file. In this case the job was aborted due to time limit, which is why no feedback to whether the job succeeded could be printed in the end.
 
 ```
 Start 2023-02-01 22:29:14
