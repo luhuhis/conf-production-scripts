@@ -18,7 +18,7 @@ else
 	no_step_sf=20
 	no_sw=20
 	load_conf=2
-	write_every=5
+	write_every=1
 	always_acc=0
 	array="0-100%1"
 fi
@@ -50,7 +50,7 @@ rat_file="/pscratch/sd/l/laltenko/conf/rat_approx/rat_ml00${mass_ud_str}ms0${mas
 stream="_1"
 if [ ! "$(squeue -u $USER | grep RHMC_${beta}_${Ns}${Nt}${stream})"  ] ; then
 
-./create_RHMC_job.sh \
+../create_RHMC_job.sh \
 --CheckConf_path ~/code/SIMULATeQCD/build_gnu/applications/CheckConf \
 --CheckRand_path ~/code/SIMULATeQCD/build_gnu/applications/CheckRand \
 --module_load cudatoolkit/11.5 craype-accel-nvidia80 PrgEnv-gnu gcc/10.3.0 \
